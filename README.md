@@ -17,7 +17,7 @@ soon™
 
 
 ## where?
-release branch
+alpha branch
 
 
 ## who?
