@@ -101,7 +101,7 @@ int Lexer::next_tokens(vector<Token>& vec) {
                 res++;
 
             } else if (string_res == "struct") {
-                vec.push_back(Token(TOK_FN));
+                vec.push_back(Token(TOK_STRUCT));
                 string_res.clear();
                 res++;
 
@@ -114,6 +114,10 @@ int Lexer::next_tokens(vector<Token>& vec) {
                 vec.push_back(Token(TOK_NUMBER, string_res));
                 string_res.clear();
                 res++;
+            } else if (is_type(string_res)) {
+                vec.push_back(Token(TOK_TYPE, string_res));
+                string_res.clear();
+                res++;    
 
             } else {
                 vec.push_back(Token(TOK_IDENT, string_res));

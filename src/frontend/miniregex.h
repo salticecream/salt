@@ -1,12 +1,21 @@
 #ifndef SALT_MINIREGEX_H
 #define SALT_MINIREGEX_H
-const char ALLOWED_CHARS[] = 
-"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"@#%&/()=[]<>+-*,.;:| \n\t\r";
-const int ALLOWED_CHARS_LEN = 88; // need manual edit
-const int ALLOWED_SYMBOLS_START = 62;
+#include <vector>
+#include <string>
+extern const char ALLOWED_CHARS[];
+extern std::vector<std::string> TYPES;
+extern const char* DEFAULT_TYPES[];
+extern const int ALLOWED_CHARS_LEN;
+extern const int ALLOWED_SYMBOLS_START;
 
+namespace MiniRegex
+{
+void fill_types();
+}
 inline bool is_digit(const char ch);
 inline bool is_whitespace(const char ch);
+bool is_type(const char* s);
+bool is_type(const std::string& s);
 bool is_alphanumeric(const char ch);
 bool is_alphabetic(const char ch);
 bool is_valid_symbol(const char ch);
