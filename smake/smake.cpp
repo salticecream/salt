@@ -15,9 +15,12 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <chrono>
 
 namespace fs = std::filesystem;
 using std::string;
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
 
 static std::vector<string> files;
 static const string USAGE = "usage: smake [path|-s] [-s]";
@@ -34,7 +37,7 @@ static void print_vector(bool verbose);
 static void compile_files(string dir, bool make_tests);
 
 int main(int argc, char** argv) {
-
+    auto start_time = high_resolution_clock::now();
     // generate the regular files
     bool verbose = true;
     string dir = "..";
@@ -69,6 +72,11 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    auto end_time = high_resolution_clock::now();
+    auto time_diff_ms = duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+
+    std::cout << std::endl << std::endl << 
+        "smake took (" << time_diff_ms << " ms)" << std::endl;
     return 0;
 }
 

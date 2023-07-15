@@ -10,4 +10,4 @@ run:
 	@./smake.exe
 
 br: 
-	@make b && make r
+	@make b && make r && cd .. && make r

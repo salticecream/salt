@@ -1,11 +1,15 @@
 build: 
-	@cd smake && make br && cd ..
+	@cd smake && make r && cd ..
 b: build
-all: build
 
+all_build:
+	@cd smake && make r && cd .. && make b
+
+all_run:
+	@make all_build && make r
 
 run:
-	@make b && bin/main.exe
+	@bin/main.exe
 r: run
 
 
@@ -16,3 +20,6 @@ c: clean
 test:
 	@tests/all_tests.exe
 t: test
+
+br:
+	@make build && make r
