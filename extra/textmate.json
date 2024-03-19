@@ -1,0 +1,81 @@
+{
+    "scopeName": "source.salt",
+    "fileTypes": ["sl"],
+    "patterns": [
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#functions"
+        },
+        {
+            "include": "#keywords"
+        }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "match": "//.*",
+                    "name": "comment.line.double-slash"
+                },
+                {
+                    "begin": "/\\*",
+                    "end": "\\*/",
+                    "name": "comment.block"
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "begin": "'",
+                    "end": "'",
+                    "name": "string.quoted.single"
+                },
+                {
+                    "begin": "\"",
+                    "end": "\"",
+                    "name": "string.quoted.double"
+                }
+            ]
+        },
+        "functions": {
+            "patterns": [
+                {
+                    "match": "fn\\s+\\w+\\(.*?\\)\\s*->\\s*\\w+",
+                    "name": "meta.function.salt",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.salt"
+                        },
+                        "2": {
+                            "name": "entity.name.function.salt"
+                        },
+                        "3": {
+                            "name": "meta.parentheses.salt"
+                        },
+                        "4": {
+                            "name": "storage.type.return-type.salt"
+                        }
+                    }
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "match": "\\b(struct|void|int|bool|char|extern|fn)\\b",
+                    "name": "keyword.control.salt"
+                },
+                {
+                    "match": "\\b(if|else|while|for|return|loop)\\b",
+                    "name": "keyword.control.flow.salt"
+                }
+            ]
+        }
+    }
+}
