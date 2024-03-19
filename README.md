@@ -1,6 +1,6 @@
 # Updates from salt_old
 
-### General (common.h)
+## General (common.h)
 Added debugging output streams.
 
 Added Result<T> class (in Rust it would be Result<T, salt::Exception>).
