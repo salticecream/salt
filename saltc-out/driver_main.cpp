@@ -1,18 +1,20 @@
 #include <iostream>
 #include <cstdlib>
-
+int gangplanks = 0;
 extern "C" {
-    int cool_exp(int base, int exponent);
+    int print_gangplank(int times);
+}
+
+extern "C" int gangplank() {
+    return printf("gangplank %d\n", ++gangplanks);
 }
 
 int main(int argc, char** argv) {
     
-    if (argc != 3)
+    if (argc != 2)
         return std::printf("fuck you");
 
     int x = std::atoi(argv[1]);
-    int y = std::atoi(argv[2]);
+    print_gangplank(x);
 
-    std::cout << cool_exp(x, y);
-    
 }

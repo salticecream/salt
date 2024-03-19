@@ -64,8 +64,9 @@ static void compile(uint64_t flags = 0, std::vector<option_t>&& = std::vector<op
 }
 
 // this will only spit out the tokens (of the input file) for the time being.
-int main(int argc, const char * const * const argv) {
-    
+int main(int argc, const char** argv) {
+    // if (argc < 2)
+    //    return 1 + 0 * printf("salt: error: no input files");
     #ifndef NDEBUG
         std::cerr << "note: debugging is on (NDEBUG not defined)" << std::endl;
 #endif
@@ -78,8 +79,13 @@ int main(int argc, const char * const * const argv) {
         MiniRegex::fill_types();
         BinaryOperator::fill_map();
 
-        std::vector<Token> vec = tokenize(argv[1]);
+        Lexer* lexer = Lexer::get();
+        std::vector<Token> vec = lexer->tokenize(argv[1]);
+        
+        // std::vector<Token> vec = tokenize(argv[1]);
         std::cout << "Done tokenizing" << std::endl;
+        for (const salt::Exception& e : lexer->errors())
+            std::cout << e.what() << std::endl;
 
         Parser* parser = Parser::get(vec);
         std::cout << "Done getting the parser" << std::endl;

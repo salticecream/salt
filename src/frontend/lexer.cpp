@@ -452,8 +452,6 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                 }
                 break;
 
-            
-            
 
             case TOK_ASSIGN:
                 switch (last.val()) {

@@ -21,7 +21,6 @@ private:
     LexerState state_;
     static Lexer* instance_;
     std::vector<salt::Exception> errors_;
-    std::ifstream* file;
     Lexer();
 
 public:
