@@ -5,6 +5,7 @@ Added debugging output streams.
 Added Result<T> class (in Rust it would be Result<T, salt::Exception>).
 Added TextColor.
 Added restriction to only allow Windows (for now).
+Added f_string, which `printf`s to a std::string.
 Removed default salt::Exception constructor.
 
 ### Testing (./src/testing)
