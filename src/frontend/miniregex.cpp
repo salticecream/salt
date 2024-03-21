@@ -104,6 +104,14 @@ bool is_pointer(const std::string& s) {
     }
 }
 
+bool string_ends_with(const char* str, const char* end) {
+    int str_length = strlen(str);
+    int end_length = strlen(end);
+
+    const char* str_substr = str + str_length - end_length;
+    return (strcmp(str_substr, end) == 0);
+}
+
 // Returns the last whitespace in a string, or a null byte if the string
 // does not end with one.
 char last_whitespace(const std::string& s) {

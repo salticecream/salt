@@ -540,7 +540,11 @@ ParserException::ParserException(const Token& tok, const char* str) :
         + std::to_string(tok.col())
         + ": found token "
         + tok.str()
+        + '['
+        + (tok.has_data() ? tok.data() : "")
         + ", "
+        + (tok.count() ? std::to_string(tok.count()) : "")
+        + "], "
         + str
         )) {}
 

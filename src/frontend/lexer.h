@@ -13,6 +13,11 @@ enum LexerState {
     LEXER_STATE_BLOCK_COMMENT
 };
 
+enum class LexerInputMode {
+    LEXER_INPUT_MODE_STDIN,
+    LEXER_INPUT_MODE_FILE
+};
+
 class Lexer {
 private:
     int col_;
@@ -21,7 +26,12 @@ private:
     LexerState state_;
     static Lexer* instance_;
     std::vector<salt::Exception> errors_;
+    std::unique_ptr<std::ifstream> stream_;
+    int next_char();
+    LexerInputMode input_mode_;
+    bool eof_reached = false;
     Lexer();
+    ~Lexer();
 
 public:
     static Lexer* get();
@@ -31,17 +41,21 @@ public:
     salt::Result<Token> next_token();
     Token end_token();
     Lexer* test_lexer();
+    void set_input_mode(LexerInputMode input_mode, std::unique_ptr<std::ifstream> stream);
+    LexerInputMode input_mode() const;
     int col() const;
     int line() const;
     int pos() const;
     LexerState state() const;
-    std::string current_string;
+
+
+    std::string current_string; /// @todo: make these 2 private
     std::string identifier_string;
-    int current_number;
+
     const std::vector<salt::Exception>& errors();
 
     // don't use Lexer::tokenize(), use simple tokenize() instead
-    std::vector<Token> tokenize(const char* str);
+    std::vector<Token> tokenize(const char* str = nullptr);
 
 };
 

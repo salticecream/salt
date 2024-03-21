@@ -5,6 +5,7 @@
 using namespace salt;
 
 // Global variables
+bool any_compile_error_occured = false;
 NullStream salt::null_stream = NullStream();
 std::ostream& salt::dbout = SALT_INTERNAL_DBOUT;
 std::ostream& salt::dberr = SALT_INTERNAL_DBERR;

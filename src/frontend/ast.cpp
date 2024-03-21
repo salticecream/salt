@@ -133,8 +133,11 @@ Value* VariableExprAST::code_gen() {
         throw salt::Exception("Types other than \"int\" NYI");
 
     Value* res = gen->named_values[this->var_.name()];
-    if (!res)
+    if (!res) {
+        any_compile_error_occured = true;
+        TODO();
         return nullptr; // Result(IRGeneratorException(this->line(), this->col(), "Unknown variable name: " + this->var_.name()));
+    }
 
 
 

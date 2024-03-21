@@ -11,16 +11,25 @@ int lexer_line = 1;
 /* private: */
 
 // Constructs a new Lexer.
+// This is done in Lexer::tokenize().
+
 Lexer::Lexer() {
     this->col_ = 1;
     this->line_ = 1;
     this->pos_ = 1;
-    Lexer::instance_ = this;
     this->current_string = std::string();
     this->identifier_string = std::string();
-    this->current_number = 0;
     this->state_ = LexerState::LEXER_STATE_NORMAL;
     this->errors_ = std::vector<salt::Exception>();
+    this->stream_ = nullptr;
+    this->input_mode_ = LexerInputMode::LEXER_INPUT_MODE_STDIN;
+}
+
+Lexer::~Lexer() {
+    if (stream_) {
+        stream_->close();
+        stream_ = nullptr;
+    }
 }
 
 
@@ -59,7 +68,7 @@ inline LexerState Lexer::state() const {
     return this->state_;
 }
 
-// only for use in testing, might be moved to test/testing.h
+// only for use in testing, might be moved to testing/testing.h
 inline Lexer* Lexer::test_lexer() {
     return new Lexer();
 }
@@ -68,13 +77,40 @@ const std::vector<salt::Exception>& Lexer::errors() {
     return errors_;
 }
 
+void Lexer::set_input_mode(LexerInputMode input_mode, std::unique_ptr<std::ifstream> stream) {
+    input_mode_ = input_mode;
+    stream_ = std::move(stream);
+}
+
+LexerInputMode Lexer::input_mode() const {
+    return input_mode_;
+}
+
+
+
+int Lexer::next_char() {
+    int res = 0;
+    if (input_mode_ == LexerInputMode::LEXER_INPUT_MODE_STDIN)
+        res = std::cin.get();
+    else if (input_mode_ == LexerInputMode::LEXER_INPUT_MODE_FILE)
+        res = stream_->get();
+    else {
+        res = 0;
+        any_compile_error_occured = true;
+        throw std::logic_error("bad LexerInputMode");
+    }
+    if (res == EOF)
+        eof_reached = true;
+    
+    return res;
+}
+
 // Helper function for next_token(). Returns the token that corresponds
 // to whatever the lexer's current_string is. Additionally trims the 
 // lexer's current_string to its last whitespace.
 // Note: string and char literals are handled differently.
 [[nodiscard]]
 Token Lexer::end_token() {
-
 
     // Check for 1-char tokens, such as \n or +
     if (this->current_string.size() == 1) {
@@ -87,6 +123,9 @@ Token Lexer::end_token() {
             this->current_string.clear();
             switch (temp_ch) {
             case EOF:
+                // this only happens when compiling a file
+                // instead of writing it directly using this program
+                // we need to return NONE, since we are inserting an EOF into the vector ourselves at the end 
                 return Token(TOK_EOF);
             case '+':
                 return Token(TOK_ADD);
@@ -206,6 +245,7 @@ Token Lexer::end_token() {
 
 // Returns the next token from stdin.
 Result<Token> Lexer::next_token() {
+
     std::string& cur_str = this->current_string;
 
     // If the string contains any data already, we return that as a token.
@@ -214,8 +254,8 @@ Result<Token> Lexer::next_token() {
 
     switch (this->state()) {
     case LEXER_STATE_NORMAL:
-        while (const char ch = getchar()) {
-
+        while (true) {
+            const char ch = next_char();
             // Move the lexer's position forward.
             this->pos_++;
             this->col_++;
@@ -243,6 +283,7 @@ Result<Token> Lexer::next_token() {
             // If not, throw an error.
             if (!is_allowed(ch) && ch != EOF) {
                 void(end_token()); // Discard the current token and just move forward
+                any_compile_error_occured = true;
                 return BadCharException(std::to_string(this->line()) + ':'
                     + std::to_string(this->col()) + ":" + " Invalid char: `" + ch + '`'
                     + "\nASCII: " + std::to_string(int(ch)));
@@ -254,7 +295,7 @@ Result<Token> Lexer::next_token() {
             // If ch is a token separator, such as \n or +, we return the start
             // of the current string as a token (ignoring the last char which
             // we just added).
-            if (is_separator(ch))
+            if (is_separator(ch) || ch == EOF)
                 return this->end_token();
         }
 
@@ -266,22 +307,25 @@ Result<Token> Lexer::next_token() {
     case LEXER_STATE_STRING: {
         // Not handling escape characters for now
         char end_char = this->state() == LEXER_STATE_CHAR ? '\'' : '"';
-        while (1) {
-            const char ch = getchar();
+        while (true) {
+            if (pos_ > 10000)
+                throw std::exception("too long file: 10000 bytes (defined in lexer.cpp:250)");
+            const char ch_str = next_char();
+            printf("Next_char() was: %d\n", ch_str);
 
             // Move the lexer's position forward.
             this->pos_++;
             this->col_++;
             lexer_col++;
 
-            if (ch == '\n') {
+            if (ch_str == '\n') {
                 this->col_ = 1;
                 this->line_++;
                 lexer_col = 1;
                 lexer_line++;
             }
 
-            if (ch == EOF || ch == end_char) {
+            if (ch_str == EOF || ch_str == end_char) {
                 std::string string_to_return = cur_str;
                 cur_str.clear();
                 Token_e token_val = this->state() == LEXER_STATE_CHAR ? TOK_CHAR : TOK_STRING;
@@ -289,8 +333,9 @@ Result<Token> Lexer::next_token() {
                 return Token(token_val, string_to_return);
             }
 
-            cur_str += ch;
+            cur_str += ch_str;
         }
+        break; // Not necessary because of while (true) loop above, but compiler is not smart enough to know this
     }
     default:
         return Token(TOK_ERROR, cur_str);
@@ -298,7 +343,15 @@ Result<Token> Lexer::next_token() {
 }
 
 std::vector<Token> Lexer::tokenize(const char* str) {
+
     Lexer* lexer = this;
+    Lexer* me = Lexer::get();
+
+    if (this != me) {
+        any_compile_error_occured = true;
+        throw std::exception(salt::f_string("Wrong address for lexer.\nThis: %p, Lexer::get(): %p", this, me).c_str());
+    }
+    
     std::vector<Token> vec;
 
     #ifndef NDEBUG
@@ -309,6 +362,26 @@ std::vector<Token> Lexer::tokenize(const char* str) {
     lexer->current_string.clear();
 
     Token NO_TOKEN = Token(TOK_NONE);
+
+    // if a string was passed into tokenize, try to read that as a file
+    if (str) {
+
+        if (!string_ends_with(str, ".sl")) {
+            std::cerr << "file must end in .sl";
+            exit(1); /// @todo: change return value to Result<...>
+        }
+
+       
+        std::unique_ptr<std::ifstream> new_stream = std::make_unique<std::ifstream>(str);
+        if (!new_stream || !new_stream->is_open()) {
+            std::cerr << "could not open file";
+            exit(1);
+        }
+
+        std::cout << "compiling " << str << std::endl;
+        set_input_mode(LexerInputMode::LEXER_INPUT_MODE_FILE, std::move(new_stream));
+    }
+
     while (true) {
         if (Result<Token> next_res = lexer->next_token()) {
             const Token next = next_res.unwrap();
@@ -382,7 +455,6 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                     break;
                 default:
                     vec.push_back(next);
-                    
                     break;
                 }
                 break;
@@ -401,7 +473,6 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                     break;
                 default:
                     vec.push_back(next);
-                    
                     break;
                 }
                 break;
@@ -412,7 +483,6 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                     last = Token(TOK_LEFT_SHIFT);
                 else {
                     vec.push_back(next);
-                    
                 }
                 break;
             
@@ -427,7 +497,6 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                     break;
                 default:
                     vec.push_back(next);
-                    
                     break; 
                 }
                 break;
@@ -438,7 +507,6 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                     last = Token(TOK_AND);
                 else {
                     vec.push_back(next);
-                    
                 }
                 break;
 
@@ -496,7 +564,6 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                     break;
                 default:
                     vec.push_back(next);
-                    
                     break;
                 }
                 break;
@@ -504,21 +571,34 @@ std::vector<Token> Lexer::tokenize(const char* str) {
 
             default:
                 vec.push_back(next);
-                
                 break;
             }
 
             if (next.val() == TOK_EOF)
                 break;
 
-            } else /* Result of next_token() was an Exception */ {
-                lexer->errors_.push_back(next_res.unwrap_err());
+        } else /* if Result of next_token() was an Exception */ {
+            lexer->errors_.push_back(next_res.unwrap_err());
         }
+
+        if (eof_reached)
+            break;
+    }
+
+    if ((!vec.empty() && vec.back().val() != TOK_EOF) || vec.empty()) {
+        std::cerr << salt::TextColor(FOREGROUND_RED | FOREGROUND_GREEN)
+            << "warning: could not read EOF; please try ending your file with a newline character"
+            << salt::TextColor(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED)
+            << std::endl;
+
+        vec.push_back(Token(TOK_EOF));
     }
 
     if (SALT_DEBUG_PRINT_VERBOSE)
         for (const Token& tok : vec)
             std::cout << tok << std::endl;
+
+    
 
     return vec;
 }

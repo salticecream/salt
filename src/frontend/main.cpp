@@ -4,16 +4,17 @@
 #include "../common.h"
 #include "irgenerator.h"
 
-// preprocessor trickery
+
 #ifdef NDEBUG
 #define ASTCNDEBUG 1
 #endif
 
-// PLACEHOLDER
+// PLACEHOLDERS
 typedef int option_t;
+std::vector<option_t> placeholder_vector_dontuse = {};
 
 // Only for windows, only to .o
-static void compile(uint64_t flags = 0, std::vector<option_t>&& = std::vector<option_t>()) {
+static void compile(uint64_t flags = 0, std::vector<option_t>& = placeholder_vector_dontuse) {
     using namespace salt;
     std::string target_triple = llvm::sys::getDefaultTargetTriple();
     std::cout << "target triple: " << target_triple;
@@ -65,8 +66,6 @@ static void compile(uint64_t flags = 0, std::vector<option_t>&& = std::vector<op
 
 // this will only spit out the tokens (of the input file) for the time being.
 int main(int argc, const char** argv) {
-    // if (argc < 2)
-    //    return 1 + 0 * printf("salt: error: no input files");
     #ifndef NDEBUG
         std::cerr << "note: debugging is on (NDEBUG not defined)" << std::endl;
 #endif
@@ -80,7 +79,13 @@ int main(int argc, const char** argv) {
         BinaryOperator::fill_map();
 
         Lexer* lexer = Lexer::get();
-        std::vector<Token> vec = lexer->tokenize(argv[1]);
+        std::vector<Token> vec;
+
+        if (argc == 2) {
+            vec = lexer->tokenize(argv[1]);
+        } else {
+            vec = lexer->tokenize();
+        }
         
         // std::vector<Token> vec = tokenize(argv[1]);
         std::cout << "Done tokenizing" << std::endl;

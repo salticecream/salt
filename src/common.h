@@ -6,6 +6,7 @@
 #include <sstream>
 #include <limits>
 #include <cstdlib>
+#include <fstream>
 
 #define SALT_DEBUG_PRINT 1
 #define SALT_DEBUG_PRINT_VERBOSE 0
@@ -31,7 +32,11 @@ namespace Windows {
 #define SALT_INTERNAL_DBOUT salt::null_stream
 #define SALT_INTERNAL_DBERR salt::null_stream
 
-#endif // SALT_DEBUG_PRINT or SALT_DEBUG_PRINT_VERBOSE
+#endif // SALT_DEBUG_PRINT || SALT_DEBUG_PRINT_VERBOSE
+
+// Global variables in global namespace
+extern bool any_compile_error_occured;
+
 
 namespace salt {
 
@@ -255,4 +260,4 @@ namespace salt {
 }
 
 // "this feature is not yet implemented!"
-#define TODO() (throw std::exception((std::string("Not yet implemented at ") + __FILE__ + ", line " + std::to_string(__LINE__)).c_str()))
+#define TODO() (throw std::exception((std::string("Not yet implemented in ") + __FUNCTION__ + " at " __FILE__ + ", line " + std::to_string(__LINE__)).c_str()))

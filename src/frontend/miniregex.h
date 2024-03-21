@@ -33,6 +33,7 @@ bool is_valid_symbol(const char ch);
 bool is_allowed(const char ch);
 bool is_integer(const char* str);
 bool is_pointer(const std::string& s);
+bool string_ends_with(const char* str, const char* end);
 char last_whitespace(std::string& s);
 
 inline bool is_digit(const char ch) {
