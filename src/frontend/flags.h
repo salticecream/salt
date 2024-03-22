@@ -1,22 +1,25 @@
 #pragma once
 
 #include <cstring>
-namespace Flags 
-{
+#include "../common.h"
+#include <map>
+#include <unordered_set>
 
-enum Flags_e {
-    NO_NEWBIE_WARNINGS = 0,
-    DONT_BUILD,
+enum class Flags_e : uint64_t {
+    DEBUG_OUTPUT,
+    DEBUG_OUTPUT_VERBOSE,
     TOTAL,
 };
 
-extern bool flags[Flags::TOTAL];
+struct CompilerFlag {
+    Flags_e flag;
+    std::string data;
+    CompilerFlag(Flags_e flag);
+    CompilerFlag(Flags_e flag, const std::string& data);
+};
 
-// Reset the compiler flags
-void reset();
-
-// Set compiler flags using command-line arguments.
-// Returns the index of the first bad argument (starting at 1), or 0 for success.
-int set(int argc, const char** argv);
-
+namespace Flags {
+    extern std::map<std::string, Flags_e> all_flags;
 }
+
+

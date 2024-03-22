@@ -112,8 +112,6 @@ std::string Token::str() const {
         return "EXTERN";
     case TOK_STRUCT:
         return "STRUCT";
-    case TOK_MUT:
-        return "MUT";
     case TOK_IDENT:
         return "IDENT";
     case TOK_NUMBER:
@@ -138,6 +136,11 @@ std::string Token::str() const {
         return "EOL";
     case TOK_EOS:
         return "EOS";
+    case TOK_MUT:
+        return "MUT";
+    case TOK_CONST:
+        return "CONST";
+
     case TOK_ADD:
         return "ADD";
     case TOK_SUB:

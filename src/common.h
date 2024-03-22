@@ -8,9 +8,6 @@
 #include <cstdlib>
 #include <fstream>
 
-#define SALT_DEBUG_PRINT 1
-#define SALT_DEBUG_PRINT_VERBOSE 0
-
 #ifdef _WIN32
 #define NOMINMAX 1
 #define SALT_WINDOWS 1
@@ -21,18 +18,11 @@ namespace Windows {
 #error "saltc is currently only available for Windows!"
 #endif
 
-// Choose where salt::dbout (debug output) should be printed
-#if SALT_DEBUG_PRINT || SALT_DEBUG_PRINT_VERBOSE
-
-#define SALT_INTERNAL_DBOUT std::cout
-#define SALT_INTERNAL_DBERR std::cerr
-
-#else
-
-#define SALT_INTERNAL_DBOUT salt::null_stream
-#define SALT_INTERNAL_DBERR salt::null_stream
-
-#endif // SALT_DEBUG_PRINT || SALT_DEBUG_PRINT_VERBOSE
+// Program may work in unexpected ways if these conditions are not satisfied
+static_assert(sizeof(char) == 1);
+static_assert(sizeof(int) == 4);
+static_assert(sizeof(size_t) == 8);
+static_assert(sizeof(long long) == 8);
 
 // Global variables in global namespace
 extern bool any_compile_error_occured;
@@ -65,21 +55,37 @@ namespace salt {
         return ss.str();
     }
 
-    // like std::cout but ignores all input
-    class NullStream : public std::ostream {
+    // like std::cout but MAY ignore all input (if deactivated)
+    class MaybeStream {
+    private:
+        bool print_to_stdout_;
     public:
-        NullStream() : std::ostream(nullptr) {}
+        void activate();
+        void deactivate();
+        bool is_active() const;
+
+        MaybeStream() : print_to_stdout_(false) {}
 
         template<typename T>
-        NullStream& operator<<(const T&) {
-            // Do nothing
+        MaybeStream& operator<<(const T& t) {
+            if (print_to_stdout_)
+                std::cout << t;
             return *this;
         }
+
+        MaybeStream& operator<<(std::ostream& (*manipulator)(std::ostream&)) {
+            if (print_to_stdout_)
+                manipulator(std::cout);
+            return *this;
+        }
+
+
     };
 
-    extern NullStream null_stream;
-    extern std::ostream& dbout; // If SALT_DEBUG_PRINT is 1 then std::cout, otherwise salt::null_stream
-    extern std::ostream& dberr; // If SALT_DEBUG_PRINT is 1 then std::cerr, otherwise salt::null_stream
+    extern MaybeStream dbout;
+    extern MaybeStream dberr;
+    extern MaybeStream dboutv;
+    extern MaybeStream dberrv;
 
     // expects a null-terminated string that corresponds to a number. anything other than digits, a '.' or a leading '-' will cause an error.
     long long atoll(const char* s);

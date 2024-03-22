@@ -3,7 +3,7 @@
 #include "parser.h"
 #include "../common.h"
 #include "irgenerator.h"
-
+#include "flags.h"
 
 #ifdef NDEBUG
 #define ASTCNDEBUG 1
@@ -17,7 +17,7 @@ std::vector<option_t> placeholder_vector_dontuse = {};
 static void compile(uint64_t flags = 0, std::vector<option_t>& = placeholder_vector_dontuse) {
     using namespace salt;
     std::string target_triple = llvm::sys::getDefaultTargetTriple();
-    std::cout << "target triple: " << target_triple;
+    salt::dbout << "target triple: " << target_triple;
     std::string error;
 
     llvm::InitializeNativeTarget();
@@ -64,44 +64,77 @@ static void compile(uint64_t flags = 0, std::vector<option_t>& = placeholder_vec
     
 }
 
-// this will only spit out the tokens (of the input file) for the time being.
+static void set_flags(const std::vector<CompilerFlag> flags) {
+    
+    for (const CompilerFlag compiler_flag : flags) {
+        const Flags_e& flag = compiler_flag.flag;
+
+        using f = Flags_e;
+        switch (flag) {
+        case f::DEBUG_OUTPUT_VERBOSE:
+            salt::dboutv.activate();
+            salt::dberrv.activate(); 
+        case f::DEBUG_OUTPUT: // fallthrough
+            salt::dbout.activate();
+            salt::dberr.activate();
+            break;
+        default:
+            throw std::exception("bad flag to set_flags()");
+        }
+    }
+}
+
+
 int main(int argc, const char** argv) {
-    #ifndef NDEBUG
-        std::cerr << "note: debugging is on (NDEBUG not defined)" << std::endl;
+#ifndef NDEBUG
+    std::cerr << "note: debugging is on (NDEBUG not defined)" << std::endl;
 #endif
 
     // Real main function
     try {
+        std::vector<const char*> input_files;
+        std::vector<CompilerFlag> compiler_flags;
+        
+        // Read argv and populate input_files and compiler_flags
+        // If argc == 0 then continue as usual (but this is deprecated)
+        for (int i = 1; i < argc; i++) {
+            if (Flags::all_flags.count(argv[i])) /* if argv[i] is a flag, then */ {
+                // add this flag to compiler_flags.
+                /// @todo: add flags which are options/have data (for example: --optimizations=O3)
+                compiler_flags.push_back(CompilerFlag(Flags::all_flags[argv[i]]));
 
-
-        auto irg = IRGenerator::get();
+            } else if (string_ends_with(argv[i], ".sl")) {
+                input_files.push_back(argv[i]);
+            } else {
+                std::cerr << salt::f_string("error: could not parse file or flag \"%s\"", argv[i]);
+                exit(1);
+            }
+        }
+                
+        set_flags(compiler_flags);
+        
         MiniRegex::fill_types();
         BinaryOperator::fill_map();
-
         Lexer* lexer = Lexer::get();
         std::vector<Token> vec;
 
-        if (argc == 2) {
-            vec = lexer->tokenize(argv[1]);
+        if (argc >= 2) {
+            vec = lexer->tokenize(input_files[0]);
         } else {
             vec = lexer->tokenize();
         }
-        
-        // std::vector<Token> vec = tokenize(argv[1]);
-        std::cout << "Done tokenizing" << std::endl;
+
+        salt::dbout << "Done tokenizing" << std::endl;
         for (const salt::Exception& e : lexer->errors())
-            std::cout << e.what() << std::endl;
+            salt::dbout << e.what() << std::endl;
 
         Parser* parser = Parser::get(vec);
-        std::cout << "Done getting the parser" << std::endl;
+        salt::dbout << "Done getting the parser" << std::endl;
 
         parser->parse();
         compile();
+        return 0;
         
-
-
-
-
     // Exception handling
     } catch (const std::exception& e) {
         std::cerr << "\n__________________________________\n";

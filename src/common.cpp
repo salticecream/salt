@@ -6,10 +6,22 @@ using namespace salt;
 
 // Global variables
 bool any_compile_error_occured = false;
-NullStream salt::null_stream = NullStream();
-std::ostream& salt::dbout = SALT_INTERNAL_DBOUT;
-std::ostream& salt::dberr = SALT_INTERNAL_DBERR;
+MaybeStream salt::dbout;
+MaybeStream salt::dberr;
+MaybeStream salt::dboutv;
+MaybeStream salt::dberrv;
 
+void salt::MaybeStream::activate() {
+	print_to_stdout_ = true;
+}
+
+void salt::MaybeStream::deactivate() {
+	print_to_stdout_ = false;
+}
+
+bool salt::MaybeStream::is_active() const {
+	return print_to_stdout_;
+}
 
 unsigned long long salt::atoull(const char* s) {
 	if (*s == '\0')

@@ -35,8 +35,8 @@ enum Token_e {
     // commands
     TOK_FN,
     TOK_EXTERN,
-    TOK_MUT,
     TOK_STRUCT,
+
 
     // other
     TOK_IDENT,              // identifier
@@ -51,6 +51,8 @@ enum Token_e {
     TOK_TAB,                // like "   "
     TOK_EOL,                // end of line
     TOK_EOS,                // end of statement
+    TOK_MUT,
+    TOK_CONST,              // possible dontuse; variables const by default
     
     // operators
     TOK_ADD,                // +

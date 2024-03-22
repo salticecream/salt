@@ -190,6 +190,14 @@ Token Lexer::end_token() {
         lexer->current_string = cur_str.back();
         return Token(TOK_STRUCT);
 
+    } else if (string_res == "mut") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_MUT);
+
+    } else if (string_res == "const") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_CONST);
+
     } else if (string_res == "let") {
         lexer->current_string = cur_str.back();
         return Token(TOK_LET);
@@ -594,9 +602,9 @@ std::vector<Token> Lexer::tokenize(const char* str) {
         vec.push_back(Token(TOK_EOF));
     }
 
-    if (SALT_DEBUG_PRINT_VERBOSE)
+    if (salt::dboutv.is_active())
         for (const Token& tok : vec)
-            std::cout << tok << std::endl;
+            salt::dboutv << tok << std::endl;
 
     
 

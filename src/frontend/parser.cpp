@@ -418,7 +418,7 @@ Result<void> Parser::handle_extern() {
         std::unique_ptr<DeclarationAST> decl = decl_res.unwrap();
         llvm::Function* generated_ir = decl->code_gen();
         salt::dbout << "Successfully parsed declaration ";
-        if (SALT_DEBUG_PRINT)
+        if (salt::dbout.is_active())
             generated_ir->print(llvm::errs());
         salt::dbout << " at: "
             << decl->line()
@@ -439,7 +439,7 @@ Result<void> Parser::handle_top_level_expr() {
         std::unique_ptr<FunctionAST> func = fn_res.unwrap();
         llvm::Function* generated_ir = func->code_gen();
         salt::dbout << "Successfully parsed top level expression ";
-        if (SALT_DEBUG_PRINT)
+        if (salt::dbout.is_active())
             generated_ir->print(llvm::errs());
         salt::dbout << " at: "
             << func->decl()->line()
@@ -460,7 +460,7 @@ Result<void> Parser::handle_function() {
         std::unique_ptr<FunctionAST> func = fn_res.unwrap();
         llvm::Function* generated_ir = func->code_gen();
         salt::dbout << "Successfully parsed function ";
-        if (SALT_DEBUG_PRINT)
+        if (salt::dbout.is_active())
             generated_ir->print(llvm::errs());
         salt::dbout << " at: "
             << func->decl()->line()
@@ -478,9 +478,7 @@ Result<void> Parser::handle_function() {
 
 }
 
-Result<void> a;
 
-// Don't use fucking unwraps here, only for testing purposes
 ParserReturnType Parser::parse() {
     // for (int i = 0; i < 1; i++)
     try {
