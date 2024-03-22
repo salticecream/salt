@@ -1,5 +1,10 @@
 #include <iostream>
-#include <cstdlib>
+
 extern "C" {
-    extern "C" int main();
+    int factorial(int x);
+    int iexp(int x);
+}
+
+int main() {
+    
 }

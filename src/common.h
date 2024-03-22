@@ -23,6 +23,8 @@ static_assert(sizeof(char) == 1);
 static_assert(sizeof(int) == 4);
 static_assert(sizeof(size_t) == 8);
 static_assert(sizeof(long long) == 8);
+static_assert(EXIT_SUCCESS == 0);
+static_assert(EXIT_FAILURE == 1);
 
 // Global variables in global namespace
 extern bool any_compile_error_occured;

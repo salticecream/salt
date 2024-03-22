@@ -36,16 +36,16 @@ Lexer::~Lexer() {
 /* public: */
 
 // Returns a pointer to the current Lexer instance.
-inline Lexer* Lexer::get() {
+Lexer* Lexer::get() {
     return instance_ ? instance_ : instance_ = new Lexer();
 }
 
 // Destroys the current lexer. Probably doesn't need to be called, since the
 // lexer should last for the entire program anyway.
-inline void Lexer::destroy() {
+void Lexer::destroy() {
     if (Lexer* lexer = Lexer::get()) {
-        Lexer::instance_ = nullptr;
         delete lexer;
+        Lexer::instance_ = nullptr;
     }
 }
 
