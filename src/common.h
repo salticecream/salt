@@ -41,6 +41,7 @@ namespace salt {
         Exception(std::string&& w) : what_(w) {}
 	    virtual const char* what() const noexcept override final { return what_.c_str(); }
         virtual ~Exception() = default;
+        operator std::string() const { return what_; }
     };
 
     template<typename T>
@@ -251,18 +252,49 @@ namespace salt {
 
     };
 
+    
+
+
     #ifdef SALT_WINDOWS
+    enum class Color : Windows::WORD {
+        BLACK = 0,
+        BLUE = 1,
+        GREEN = 2,
+        CYAN = 3,
+        RED = 4,
+        MAGENTA = 5,
+        YELLOW = 6,
+        WHITE = 7,
+        GRAY = 8,
+        LIGHT_BLUE = 9,
+        LIGHT_GREEN = 10,
+        LIGHT_CYAN = 11,
+        LIGHT_RED = 12,
+        LIGHT_MAGENTA = 13,
+        LIGHT_YELLOW = 14,
+        BRIGHT_WHITE = 15
+    };
+
     class TextColor {
     private:
         Windows::WORD color_;
     public:
         explicit TextColor(Windows::WORD color) : color_(color) {}
+        TextColor(Color color) : color_(Windows::WORD(color)) {}
         friend std::ostream& operator<<(std::ostream& os, const TextColor color);
         TextColor operator|(const TextColor tc) const { return TextColor(color_ | tc.color_); }
         static void set(const TextColor color);
+
+        
     };
     #endif
 
+    void print_colored(const std::string& str, const TextColor tc);
+    void print_warning(const std::string& warning);
+    void print_error(const std::string& error);
+
+    [[noreturn]]
+    void print_fatal(const std::string& error, int exit_code = 1);
     
 
 }

@@ -100,9 +100,10 @@ std::ostream& salt::operator<<(std::ostream& os, const TextColor tc) {
 
 void TextColor::set(const TextColor tc) {
 	using namespace Windows;
-	Windows::HANDLE console_handle = Windows::GetStdHandle(STD_OUTPUT_HANDLE);
-	Windows::SetConsoleTextAttribute(console_handle, tc.color_);
+	if (Windows::HANDLE console_handle = Windows::GetStdHandle(STD_OUTPUT_HANDLE))
+		Windows::SetConsoleTextAttribute(console_handle, tc.color_);
 }
+
 #endif
 
 
@@ -128,4 +129,27 @@ std::string salt::f_string(const char* format, ...) {
 	// Clean up the variable argument list
 	va_end(args);
 	return str;
+}
+
+void salt::print_colored(const std::string& str, const TextColor tc) {
+	std::cout << tc << str << Color::WHITE;
+}
+
+void salt::print_warning(const std::string& str) {
+	print_colored("warning: " + str, Color::YELLOW);
+	std::cout << std::endl;
+}
+
+void salt::print_error(const std::string& str) {
+	any_compile_error_occured = true;
+	print_colored("error: " + str, Color::LIGHT_RED);
+	std::cout << std::endl;
+}
+
+[[noreturn]]
+void salt::print_fatal(const std::string& str, int exit_code) {
+	any_compile_error_occured = true;
+	print_colored("fatal: error: " + str, Color::LIGHT_RED);
+	std::cout << std::endl;
+	std::exit(exit_code);
 }
