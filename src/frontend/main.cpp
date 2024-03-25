@@ -25,8 +25,7 @@ static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*
     const llvm::Target* target = llvm::TargetRegistry::lookupTarget(target_triple, error);
 
     if (!target) {
-        std::cerr << "you fucked up: " << error;
-        std::exit(1);
+        print_fatal(error);
     }
 
     const char* cpu_type = "generic";
@@ -46,8 +45,7 @@ static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*
     llvm::raw_fd_ostream destination(output_file.c_str(), error_code, llvm::sys::fs::OpenFlags::OF_None);
 
     if (error_code) {
-        std::cerr << "could not open file: " << error_code.message();
-        std::exit(1);
+        print_fatal("could not open file: " + error_code.message());
     }
 
     // finally, emit this object code
@@ -56,8 +54,7 @@ static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*
     auto file_type = llvm::CodeGenFileType::ObjectFile;
 
     if (target_machine->addPassesToEmitFile(pass, destination, nullptr, file_type)) {
-        std::cerr << "Could not emit file of this type";
-        std::exit(1);
+        print_fatal("could not emit file of this type");
     }
 
     pass.run(*gen->mod);
@@ -80,7 +77,7 @@ static void set_flags(const std::vector<CompilerFlag> flags) {
             salt::dberr.activate();
             break;
         default:
-            throw std::exception("bad flag to set_flags()");
+            salt::print_fatal("bad flag to set_flags()");
         }
     }
 }
@@ -88,8 +85,7 @@ static void set_flags(const std::vector<CompilerFlag> flags) {
 
 int main(int argc, const char** argv) {
     if (argc <= 1) {
-        std::cerr << "error: no input files";
-        exit(1);
+        salt::print_fatal("no input files");
     }
 
     std::vector<const char*> input_files;
@@ -106,8 +102,7 @@ int main(int argc, const char** argv) {
         } else if (string_ends_with(argv[i], ".sl")) {
             input_files.push_back(argv[i]);
         } else {
-            std::cerr << salt::f_string("error: could not parse file or flag \"%s\"", argv[i]);
-            exit(1);
+            salt::print_fatal(salt::f_string("error: could not parse file or flag \"%s\"", argv[i]));
         }
     }
 

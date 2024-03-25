@@ -2,7 +2,7 @@
 
 std::map<Token_e, int> BINOP_MAP;
 
-static inline int millions(int a) {return a * 1000000;}
+static inline int constexpr millions(int a) {return a * 1000000;}
 
 namespace BinaryOperator {
 

@@ -245,7 +245,7 @@ std::string Token::str() const {
 
 Token Token::as_pointer() const {
     if (this->val() != TOK_TYPE)
-        throw std::exception((std::to_string(line_) + ':' + std::to_string(col_) + ':' + "(internal) Bad call to Token::to_pointer()").c_str());
+        salt::print_fatal(salt::Exception((std::to_string(line_) + ':' + std::to_string(col_) + ':' + "(internal) Bad call to Token::to_pointer()").c_str()));
     
     return Token(TOK_PTR, this->data());
 }

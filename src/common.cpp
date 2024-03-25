@@ -25,9 +25,9 @@ bool salt::MaybeStream::is_active() const {
 
 unsigned long long salt::atoull(const char* s) {
 	if (*s == '\0')
-		throw Exception("Tried to parse empty string with salt::atoull");
+		print_fatal("Tried to parse empty string with salt::atoull");
 	if (*s == '.')
-		throw Exception("Invalid string for salt::atoull: .");
+		print_fatal("Invalid string for salt::atoull: .");
 
 	unsigned long long res = 0;
 
@@ -36,12 +36,12 @@ unsigned long long salt::atoull(const char* s) {
 			break;
 
 		if (*s < '0' || *s > '9')
-			throw Exception(std::string("Invalid string for salt::atoull: ") + s);
+			print_fatal(std::string("Invalid string for salt::atoull: ") + s);
 
 		unsigned long long next_res = res * 10 + *s - '0';
 
 		if (next_res < res)
-			throw Exception(std::string("Overflow in salt::atoull for number: ") + s);
+			print_fatal(std::string("Overflow in salt::atoull for number: ") + s);
 
 		res = next_res;
 		s++;
@@ -66,7 +66,7 @@ long long salt::atoll(const char* s) {
 	// (don't mind the cursed "const char* - bool")
 	unsigned long long res = salt::atoull(s);
 	if (res > LLONG_MAX)
-		throw Exception(std::string("Overflow in salt::atoll for number: ") + (s - neg));
+		print_fatal(std::string("Overflow in salt::atoll for number: ") + (s - neg));
 
 
 	return neg ? -res : res;
@@ -75,7 +75,7 @@ long long salt::atoll(const char* s) {
 int salt::atoi(const char* s) {
 	long long res = salt::atoll(s);
 	if (res > INT_MAX || res < INT_MIN)
-		throw Exception(std::string("Overflow in salt::atoi for number: ") + s);
+		print_fatal(std::string("Overflow in salt::atoi for number: ") + s);
 	return static_cast<int>(res);
 }
 
@@ -149,7 +149,7 @@ void salt::print_error(const std::string& str) {
 [[noreturn]]
 void salt::print_fatal(const std::string& str, int exit_code) {
 	any_compile_error_occured = true;
-	print_colored("fatal: error: " + str, Color::LIGHT_RED);
+	print_colored("fatal: " + str, Color::LIGHT_RED);
 	std::cout << std::endl;
 	std::exit(exit_code);
 }

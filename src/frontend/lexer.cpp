@@ -97,7 +97,7 @@ int Lexer::next_char() {
     else {
         res = 0;
         any_compile_error_occured = true;
-        throw std::logic_error("bad LexerInputMode");
+        salt::print_fatal("bad LexerInputMode");
     }
     if (res == EOF)
         eof_reached = true;
@@ -313,6 +313,7 @@ Result<Token> Lexer::next_token() {
     // please only 2 cases in this bracket, otherwise everything breaks
     case LEXER_STATE_CHAR:
     case LEXER_STATE_STRING: {
+        TODO();
         // Not handling escape characters for now
         char end_char = this->state() == LEXER_STATE_CHAR ? '\'' : '"';
         while (true) {
@@ -357,36 +358,32 @@ std::vector<Token> Lexer::tokenize(const char* str) {
 
     if (this != me) {
         any_compile_error_occured = true;
-        throw std::exception(salt::f_string("Wrong address for lexer.\nThis: %p, Lexer::get(): %p", this, me).c_str());
+        salt::print_fatal(salt::f_string("Wrong address for lexer.\nThis: %p\n Lexer::get(): %p", this, me).c_str());
     }
     
     std::vector<Token> vec;
 
-    #ifndef NDEBUG
     if (lexer->current_string.size() > 0)
         std::cerr << "warning: lexer still has string data left before tokenize: "
             << lexer->current_string;
-    #endif
-    lexer->current_string.clear();
 
+    lexer->current_string.clear();
     Token NO_TOKEN = Token(TOK_NONE);
 
     // if a string was passed into tokenize, try to read that as a file
     if (str) {
 
         if (!string_ends_with(str, ".sl")) {
-            std::cerr << "file must end in .sl";
-            exit(1); /// @todo: change return value to Result<...>
+            salt::print_fatal(std::string(str) + ": file must end in .sl");
         }
 
        
         std::unique_ptr<std::ifstream> new_stream = std::make_unique<std::ifstream>(str);
         if (!new_stream || !new_stream->is_open()) {
-            std::cerr << "could not open file";
-            exit(1);
+            salt::print_fatal(std::string(str) + ": could not open file");
         }
 
-        std::cout << "compiling " << str << std::endl;
+        salt::dbout << "compiling " << str << std::endl;
         set_input_mode(LexerInputMode::LEXER_INPUT_MODE_FILE, std::move(new_stream));
     }
 
@@ -594,19 +591,13 @@ std::vector<Token> Lexer::tokenize(const char* str) {
     }
 
     if ((!vec.empty() && vec.back().val() != TOK_EOF) || vec.empty()) {
-        std::cerr << salt::TextColor(FOREGROUND_RED | FOREGROUND_GREEN)
-            << "warning: could not read EOF; please try ending your file with a newline character"
-            << salt::TextColor(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED)
-            << std::endl;
-
+        salt::print_warning("could not read EOF; please try ending your file with a newline character");
         vec.push_back(Token(TOK_EOF));
     }
 
     if (salt::dboutv.is_active())
         for (const Token& tok : vec)
             salt::dboutv << tok << std::endl;
-
-    
 
     return vec;
 }

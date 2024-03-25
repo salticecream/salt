@@ -36,7 +36,7 @@ VariableExprAST::VariableExprAST(const Token& tok) : var_(Variable(tok.data(), D
     this->col_ = tok.col();
     this->line_ = tok.line();
     if (tok.val() != TOK_IDENT)
-        throw salt::Exception("tok.val() was not TOK_IDENT in VariableExprAST()");
+        print_fatal("tok.val() was not TOK_IDENT in VariableExprAST()");
 }
 
 
@@ -130,7 +130,7 @@ Value* VariableExprAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
 
     if (this->var().type().name() != DEFAULT_TYPES[DT_INT].name())
-        throw salt::Exception("Types other than \"int\" NYI");
+        print_fatal("Types other than \"int\" NYI");
     for (const std::pair<std::string, Value*>& pair : gen->named_values) {
         salt::dboutv << f_string("Name %s: ptr %p\n", pair.first.c_str(), pair.second);
     }
@@ -140,7 +140,7 @@ Value* VariableExprAST::code_gen() {
     
     if (!res) {
         any_compile_error_occured = true;
-        throw salt::Exception(f_string("Unknown variable name: %s", this->var().name()));
+        print_fatal(f_string("Unknown variable name: %s", this->var().name()));
         return nullptr; // Result(IRGeneratorException(this->line(), this->col(), "Unknown variable name: " + this->var_.name()));
     }
 
@@ -153,11 +153,11 @@ Value* BinaryExprAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
     Value* left = lhs_->code_gen();
     if (!left)
-        throw salt::Exception("Bad LHS to BinaryExprAST::code_gen()");
+        print_fatal("Bad LHS to BinaryExprAST::code_gen()");
 
     Value* right = rhs_->code_gen();
     if (!right)
-        throw salt::Exception("Bad RIGHT to BinaryExprAST::code_gen()");
+        print_fatal("Bad RHS to BinaryExprAST::code_gen()");
     
     switch (this->op_) {
 
@@ -190,7 +190,7 @@ Value* BinaryExprAST::code_gen() {
     case TOK_NOT_EQUALS:
         return gen->builder->CreateICmpNE(left, right, "neqcmptmp");
     default:
-        throw salt::Exception("Found bad token " + Token(op_).str() + "in BinaryExprAST::code_gen()");
+        print_fatal("Found bad token " + Token(op_).str() + "in BinaryExprAST::code_gen()");
     }
 }
 
@@ -201,17 +201,17 @@ Value* CallExprAST::code_gen() {
     // Error handling: the function must exist, and be passed the correct number of arguments.
     // Variadic functions will be added much later or possibly never.
     if (!callee_fn)
-        throw IRGeneratorException(this->line(), this->col(), "no function exists named " + this->callee());
+        print_fatal(IRGeneratorException(this->line(), this->col(), "no function exists named " + this->callee()));
     size_t arg_size = args().size();
     if (callee_fn->arg_size() != arg_size)
-        throw IRGeneratorException(this->line(), this->col(),
+        print_fatal(IRGeneratorException(this->line(), this->col(),
             " Function named "
             + this->callee()
             + " takes "
             + std::to_string(callee_fn->arg_size())
             + " arguments, but "
             + std::to_string(arg_size)
-            + " were provided"); 
+            + " were provided")); 
 
     // Ok, this is a valid call. Populate the argument vector with the provided arguments.
     std::vector<Value*> argv; 
@@ -220,7 +220,7 @@ Value* CallExprAST::code_gen() {
         
 
     if (!argv.empty() && !argv.back())
-        throw salt::Exception("argv.back() is nullptr in CallExprAST::code_gen()");
+        print_fatal("argv.back() is nullptr in CallExprAST::code_gen()");
 
     return gen->builder->CreateCall(callee_fn, argv, "calltmp");
 }
@@ -240,7 +240,7 @@ Value* IfExprAST::code_gen() {
         cond_val = gen->builder->CreateICmpNE(
             cond_val, ConstantInt::get(llvm::Type::getInt1Ty(*gen->context), 0, false), "ifcond");
     else
-        throw std::exception("Wrong type for comparison, only i1 and i32 supported");
+        print_fatal("Wrong type for comparison, only i1 and i32 supported");
 
     // Let fn be the current function that we're working with.
     Function* fn = gen->builder->GetInsertBlock()->getParent();
@@ -315,12 +315,12 @@ Function* FunctionAST::code_gen() {
         f = this->decl()->code_gen();
 
     if (!f)
-        throw IRGeneratorException(this->decl()->line(), this->decl()->col(), "Failed DeclarationAST::code_gen()");
+        print_fatal(IRGeneratorException(this->decl()->line(), this->decl()->col(), "Failed DeclarationAST::code_gen()"));
     
     // Check that the function has not already been defined (it's ok if it has been declared though)
     if (!f->empty())
-        throw IRGeneratorException(this->decl()->line(), this->decl()->col(),
-            "cannot redefine function " + this->decl()->name());
+        print_fatal(IRGeneratorException(this->decl()->line(), this->decl()->col(),
+            "cannot redefine function " + this->decl()->name()));
 
     // Tell the LLVM builder to generate code inside this block (the function).
     // Control flow comes later.

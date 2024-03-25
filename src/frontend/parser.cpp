@@ -45,13 +45,13 @@ bool Parser::can_go_next() {
 
 void Parser::next() {
     if (current_idx == vec.size() - 1)
-        throw std::exception("current_idx reached vec size");
+        salt::print_fatal("current_idx reached vec size");
 
     else if (vec[current_idx].val() == TOK_EOF)
-        throw std::exception("trying to access token vector past EOF");
+        salt::print_fatal("trying to access token vector past EOF");
 
     else if (current_idx > vec.size() - 1)
-        throw std::exception("current_idx exceeded vec size");
+        salt::print_fatal("current_idx EXCEEDED vec size");
 
     current_idx++;
     skip_whitespace();
