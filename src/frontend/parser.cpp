@@ -517,7 +517,7 @@ ParserReturnType Parser::parse() {
 
             if (!res) {
                 any_compile_error_occured = true;
-                std::cout << res.unwrap_err().what() << std::endl;
+                print_error(res.unwrap_err().what());
             }
         }
     }

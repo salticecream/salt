@@ -31,6 +31,7 @@ extern bool any_compile_error_occured;
 
 
 namespace salt {
+    class TextColor; // defined below
 
     class Exception : public std::exception {
     protected:
@@ -103,6 +104,13 @@ namespace salt {
         OK = 0,
         ERR = 1
     };
+
+    void print_colored(const std::string& str, const TextColor tc);
+    void print_warning(const std::string& warning);
+    void print_error(const std::string& error);
+
+    [[noreturn]]
+    void print_fatal(const std::string& error, int exit_code = 1);
 
     /// @todo: maybe one day make a better Result class
     /* 
@@ -289,12 +297,7 @@ namespace salt {
     };
     #endif
 
-    void print_colored(const std::string& str, const TextColor tc);
-    void print_warning(const std::string& warning);
-    void print_error(const std::string& error);
-
-    [[noreturn]]
-    void print_fatal(const std::string& error, int exit_code = 1);
+    
     
 
 }

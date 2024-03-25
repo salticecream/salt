@@ -136,20 +136,20 @@ void salt::print_colored(const std::string& str, const TextColor tc) {
 }
 
 void salt::print_warning(const std::string& str) {
-	print_colored("warning: " + str, Color::YELLOW);
-	std::cout << std::endl;
+	print_colored("warning: ", Color::YELLOW);
+	std::cout << str << std::endl;
 }
 
 void salt::print_error(const std::string& str) {
 	any_compile_error_occured = true;
-	print_colored("error: " + str, Color::LIGHT_RED);
-	std::cout << std::endl;
+	print_colored("error: ", Color::LIGHT_RED);
+	std::cout << str << std::endl;
 }
 
 [[noreturn]]
 void salt::print_fatal(const std::string& str, int exit_code) {
 	any_compile_error_occured = true;
-	print_colored("fatal: " + str, Color::LIGHT_RED);
-	std::cout << std::endl;
+	print_colored("FATAL: ", Color::LIGHT_RED);
+	std::cout << str << std::endl;
 	std::exit(exit_code);
 }
