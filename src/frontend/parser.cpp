@@ -96,8 +96,10 @@ Result<Expression> Parser::parse_ident_expr() {
     this->next();
 
     // Check if this is NOT a function call, if so, return the identifier as its own expression
-    if (vec[current_idx].val() != TOK_LEFT_BRACKET)
+    if (vec[current_idx].val() != TOK_LEFT_BRACKET) {
+        salt::dboutv << f_string("Making variable with name %s\n", vec[ident_idx].data());
         return std::make_unique<VariableExprAST>(vec[ident_idx]);
+    }
     
 
     // this identifier is a function call. treat it like one.
@@ -297,6 +299,7 @@ Result<std::unique_ptr<DeclarationAST>> Parser::parse_declaration() {
             if (tok.val() != TOK_IDENT) /// @todo: make this TOK_TYPE (for typed variable)
                 return ParserException(vec[current_idx], "expected identifier");
             const std::string& arg_name = tok.data();
+            salt::dbout << f_string("arg_name : %s\n", arg_name.c_str());
 
             /// @todo: add more types!!!
             Variable arg = Variable(arg_name, DEFAULT_TYPES[DT_INT]);
@@ -381,7 +384,7 @@ Result<Expression> Parser::parse_repeat_expr() {
     if (expr_res)
         success_ret_value = expr_res.unwrap();
     else
-        /*fail_ret_value = */ throw ParserException(vec[index_before_parse], expr_res.unwrap_err().what());
+        fail_ret_value = ParserException(vec[index_before_parse], expr_res.unwrap_err().what());
 
 
     // Try to skip the following colon.
@@ -447,8 +450,7 @@ Result<void> Parser::handle_top_level_expr() {
             << func->decl()->col()
             << std::endl;
         return Result_e::OK;
-    }
-    else {
+    } else {
         if (can_go_next())
             this->next();
         return fn_res.unwrap_err();
@@ -482,8 +484,8 @@ Result<void> Parser::handle_function() {
 ParserReturnType Parser::parse() {
     // for (int i = 0; i < 1; i++)
     try {
+        Result<void> res;
         while (1) {
-            Result<void> res;
             if (current_idx >= vec.size())
                 return;
             Token_e val = vec[current_idx].val();
@@ -498,32 +500,32 @@ ParserReturnType Parser::parse() {
                 break;
             case TOK_EXTERN:
                 res = handle_extern();
-                if (!res)
-                    std::cout << res.unwrap_err().what() << std::endl;
                 break;
             case TOK_FN:
                 res = handle_function();
-                if (!res)
-                    std::cout << res.unwrap_err().what() << std::endl;
                 break;
             case TOK_NUMBER:
             case TOK_SUB:
             case TOK_REPEAT:
             case TOK_IF:
                 res = handle_top_level_expr();
-                if (!res)
-                    std::cout << res.unwrap_err().what() << std::endl;
                 break;
             default: 
                 res = handle_function();
-                if (!res)
-                    std::cout << res.unwrap_err().what() << std::endl;
                 break;
+            }
+
+            if (!res) {
+                any_compile_error_occured = true;
+                std::cout << res.unwrap_err().what() << std::endl;
             }
         }
     }
+
     catch (const ParserException& e) {
         std::cerr << e.what() << std::endl;
+        if (can_go_next())
+            this->next();
     }
 
     catch (const salt::Exception& e) {

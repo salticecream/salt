@@ -9,13 +9,10 @@
 #define ASTCNDEBUG 1
 #endif
 
-// PLACEHOLDERS
-typedef int option_t;
-std::vector<option_t> placeholder_vector_dontuse = {};
 static int files_compiled = 0;
 
 // Only for windows, only to .o
-static void compile_to_object(const std::vector<CompilerFlag> /*compiler_flags*/) {
+static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*/) {
     using namespace salt;
     std::string target_triple = llvm::sys::getDefaultTargetTriple();
     salt::dbout << "target triple: " << target_triple;
@@ -103,7 +100,7 @@ int main(int argc, const char** argv) {
     for (int i = 1; i < argc; i++) {
         if (Flags::all_flags.count(argv[i])) /* if argv[i] is a flag, then */ {
             // add this flag to compiler_flags.
-            /// @todo: add flags which are options/have data (for example: --optimizations=O3)
+            /// @todo: add flags which are options/have data (for example: -o output.exe)
             compiler_flags.push_back(CompilerFlag(Flags::all_flags[argv[i]]));
 
         } else if (string_ends_with(argv[i], ".sl")) {
@@ -138,7 +135,7 @@ int main(int argc, const char** argv) {
             // Compile the file
             compile_to_object(compiler_flags);
 
-            // So we can start compiling the next file
+            // Reset everything so we can start compiling the next file
             Lexer::destroy();
             Parser::destroy();
             IRGenerator::destroy();

@@ -36,7 +36,7 @@ VariableExprAST::VariableExprAST(const Token& tok) : var_(Variable(tok.data(), D
     this->col_ = tok.col();
     this->line_ = tok.line();
     if (tok.val() != TOK_IDENT)
-        throw salt::Exception("tok.val() was not TOK_IDENT");
+        throw salt::Exception("tok.val() was not TOK_IDENT in VariableExprAST()");
 }
 
 
@@ -129,13 +129,18 @@ Value* VariableExprAST::code_gen() {
 
     IRGenerator* gen = IRGenerator::get();
 
-    if (this->var_.type().name() != DEFAULT_TYPES[DT_INT].name())
+    if (this->var().type().name() != DEFAULT_TYPES[DT_INT].name())
         throw salt::Exception("Types other than \"int\" NYI");
+    for (const std::pair<std::string, Value*>& pair : gen->named_values) {
+        salt::dboutv << f_string("Name %s: ptr %p\n", pair.first.c_str(), pair.second);
+    }
+    salt::dboutv << f_string("I am a variable and my name is %s", this->var().name());
 
-    Value* res = gen->named_values[this->var_.name()];
+    Value* res = gen->named_values[this->var().name()];
+    
     if (!res) {
         any_compile_error_occured = true;
-        TODO();
+        throw salt::Exception(f_string("Unknown variable name: %s", this->var().name()));
         return nullptr; // Result(IRGeneratorException(this->line(), this->col(), "Unknown variable name: " + this->var_.name()));
     }
 
@@ -294,11 +299,9 @@ Function* DeclarationAST::code_gen() {
 
     // Name the arguments appropriately to make life easier for us in the future.
 
-    unsigned Idx = 0;
-    for (auto& Arg : f->args()) {
-        Arg.setName((args_[Idx]).name());
-        std::cout << "naming arguments: Arg.getName() is " << std::string(Arg.getName()) << std::endl;
-    }
+    int i = 0;
+    for (Argument& Arg : f->args())
+        Arg.setName((args()[i++]).name());
 
     return f;
 }
@@ -331,30 +334,31 @@ Function* FunctionAST::code_gen() {
     // Now we populate named_values with the args that are in scope.
     for (auto& arg : f->args()) {
         gen->named_values[std::string(arg.getName())] = &arg;
-        std::cout << "arg.getName(): " << std::string(arg.getName()) << std::endl;
+        salt::dbout << "arg.getName(): " << std::string(arg.getName()) << std::endl;
     }
 
-    std::cout << "created declaration" << std::endl;
+    salt::dbout << "created declaration" << std::endl;
 
     if (this->body()) {
         Value* res = this->body()->code_gen();
-
         gen->builder->CreateRet(res);
 
-        std::cout << "created return" << std::endl;
+        salt::dbout << "created return" << std::endl;
 
-        std::cout << "verifyfunction: ";
-        bool errors_found = verifyFunction(*f, &llvm::outs());
-        if (!errors_found)
-            // optimize the function
-            gen->fn_pass_mgr->run(*f, *gen->fn_analysis_mgr);
-        std::cout << (errors_found ? "an error was found" : "") << std::endl;
+        std::string error_result = "llvm error: ";
+        llvm::raw_string_ostream error_os = llvm::raw_string_ostream(error_result);
+        bool errors_found = verifyFunction(*f, &error_os);
+        error_os << '\n';
+
+        std::cout << (errors_found ? error_result : ""); /// @todo: change to (and add) print_fatal_error()
     } else {
-        std::cout << "function " << this->decl()->name() << " does not have body" << std::endl;
+        salt::dbout << "function " << this->decl()->name() << " does not have body" << std::endl;
     }
+    salt::dbout << f_string("successfully created function %s\n", this->decl()->name().c_str());
     return f;
 }
 
+/// @todo: fix
 llvm::Value* RepeatAST::code_gen() {
     
     // initialize variables
