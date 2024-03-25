@@ -183,16 +183,16 @@ namespace salt {
 
         T unwrap() {
             if (!is_initialized_)
-                throw Exception("tried to use uninitialized Result");
+                print_fatal("tried to use uninitialized Result");
             if (is_ok()) 
                 return std::move(*success_); 
             else 
-                throw Exception(std::string("Tried to unwrap exception: ") + fail_.what()); 
+                print_fatal(std::string("Tried to unwrap exception: ") + fail_.what()); 
         }
 
         T unwrap_or(T&& default_value) {
             if (!is_initialized_)
-                throw Exception("tried to use uninitialized Result");
+                print_fatal("tried to use uninitialized Result");
             if (is_ok()) 
                 return std::move(*success_); 
             else 
@@ -201,11 +201,11 @@ namespace salt {
 
         salt::Exception&& unwrap_err() {
             if (!is_initialized_)
-                throw Exception("tried to use uninitialized Result");
+                print_fatal("tried to use uninitialized Result");
             if (!is_ok()) 
                 return std::move(fail_); 
             else 
-                throw Exception("tried to call unwrap_err() on an ok value"); 
+                print_fatal("tried to call unwrap_err() on an ok value"); 
         }
 
     };
@@ -240,14 +240,14 @@ namespace salt {
 
         void unwrap() {
             if (!is_ok())
-                throw Exception(std::string("Tried to unwrap exception: ") + fail_.what());
+                print_fatal(std::string("Tried to unwrap exception: ") + fail_.what());
         }
 
         salt::Exception&& unwrap_err() {
             if (!is_ok())
                 return std::move(fail_);
             else
-                throw Exception("tried to call unwrap_err() on an ok value");
+                print_fatal("tried to call unwrap_err() on an ok value");
         }
 
     };
