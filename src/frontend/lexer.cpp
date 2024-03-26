@@ -23,6 +23,8 @@ Lexer::Lexer() {
     this->errors_ = std::vector<salt::Exception>();
     this->stream_ = nullptr;
     this->input_mode_ = LexerInputMode::LEXER_INPUT_MODE_STDIN;
+    lexer_line = 1;
+    lexer_col = 1;
 }
 
 Lexer::~Lexer() {
