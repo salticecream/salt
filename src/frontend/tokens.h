@@ -59,10 +59,12 @@ enum Token_e {
     TOK_SUB,                // -
     TOK_MUL,                // *
     TOK_DIV,                // /
+    TOK_MODULO,             // %
     TOK_EXCLAMATION,        // !
     TOK_AMPERSAND,          // &
     TOK_VERTICAL_BAR,       // |
     TOK_TILDE,              // ~
+    TOK_CARAT,              // ^
     TOK_INCREMENT,          // ++
     TOK_DECREMENT,          // --
 
@@ -96,9 +98,11 @@ enum Token_e {
     TOK_SUB_ASSIGN,         // -=
     TOK_MUL_ASSIGN,         // *=
     TOK_DIV_ASSIGN,         // /=
+    TOK_MODULO_ASSIGN,      // %=
     TOK_AND_ASSIGN,         // &=
     TOK_OR_ASSIGN,          // |=
     TOK_TILDE_ASSIGN,       // ~=
+    TOK_XOR_ASSIGN,         // ^=
     
     // ctrl flow
     TOK_IF,

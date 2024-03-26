@@ -149,6 +149,8 @@ std::string Token::str() const {
         return "MUL";
     case TOK_DIV:
         return "DIV";
+    case TOK_MODULO:
+        return "MODULO";
     case TOK_EXCLAMATION:
         return "EXCLAMATION";
     case TOK_AMPERSAND:
@@ -157,6 +159,8 @@ std::string Token::str() const {
         return "VERTICAL_BAR";
     case TOK_TILDE:
         return "TILDE";
+    case TOK_CARAT:
+        return "CARAT";
     case TOK_INCREMENT:
         return "INCREMENT";
     case TOK_DECREMENT:
@@ -205,12 +209,16 @@ std::string Token::str() const {
         return "MUL_ASSIGN";
     case TOK_DIV_ASSIGN:
         return "DIV_ASSIGN";
+    case TOK_MODULO_ASSIGN:
+        return "MODULO_ASSIGN";
     case TOK_AND_ASSIGN:
         return "AND_ASSIGN";
     case TOK_OR_ASSIGN:
         return "OR_ASSIGN";
     case TOK_TILDE_ASSIGN:
         return "TILDE_ASSIGN";
+    case TOK_XOR_ASSIGN:
+        return "XOR_ASSIGN";
     case TOK_IF:
         return "IF";
     case TOK_ELSE:
