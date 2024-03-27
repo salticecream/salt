@@ -84,9 +84,6 @@ static void set_flags(const std::vector<CompilerFlag> flags) {
 
 
 int main(int argc, const char** argv) {
-    if (argc <= 1) {
-        salt::print_fatal("no input files");
-    }
 
     std::vector<const char*> input_files;
     std::vector<CompilerFlag> compiler_flags;
@@ -106,19 +103,18 @@ int main(int argc, const char** argv) {
         }
     }
 
-        
+    if (input_files.empty())
+        salt::print_fatal("no input files");
+
+    set_flags(compiler_flags);
+    MiniRegex::fill_types();
+    BinaryOperator::fill_map();
 
     try {
-        set_flags(compiler_flags);
-        MiniRegex::fill_types();
-        BinaryOperator::fill_map();
-        
-        std::vector<Token> vec;
-
         for (const char* input_file : input_files) {
             // Tokenize the file
             Lexer* lexer = Lexer::get();
-            vec = lexer->tokenize(input_file);
+            std::vector<Token> vec = lexer->tokenize(input_file);
             salt::dbout << "Done tokenizing" << std::endl;
             for (const salt::Exception& e : lexer->errors())
                 salt::dbout << e.what() << std::endl;
@@ -126,6 +122,7 @@ int main(int argc, const char** argv) {
             // Parse tokens and form AST
             Parser* parser = Parser::get(vec);
             parser->parse();
+            
 
             // Compile the file
             compile_to_object(compiler_flags);
