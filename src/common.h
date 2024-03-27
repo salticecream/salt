@@ -286,6 +286,7 @@ namespace salt {
     class TextColor {
     private:
         Windows::WORD color_;
+
     public:
         explicit TextColor(Windows::WORD color) : color_(color) {}
         TextColor(Color color) : color_(Windows::WORD(color)) {}
@@ -293,13 +294,17 @@ namespace salt {
         TextColor operator|(const TextColor tc) const { return TextColor(color_ | tc.color_); }
         static void set(const TextColor color);
 
-        
+        friend std::ostringstream& operator<<(std::ostringstream& oss, const TextColor& color) = delete;
     };
-    #endif
 
-    
-    
+    #endif /* ifdef SALT_WINDOWS */
 
+
+}
+
+template <typename T>
+T&& cast_to_rvalue(T& t) {
+    return (T&&) t;
 }
 
 // "this feature is not yet implemented!"
