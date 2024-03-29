@@ -125,7 +125,8 @@ int main(int argc, const char** argv) {
             
 
             // Compile the file
-            compile_to_object(compiler_flags);
+            if (!any_compile_error_occured)
+                compile_to_object(compiler_flags);
 
             // Reset everything so we can start compiling the next file
             Lexer::destroy();
@@ -137,13 +138,14 @@ int main(int argc, const char** argv) {
     // Exception handling
     } catch (const std::exception& e) {
         std::cerr << "\n__________________________________\n";
-        std::cerr << "--- " << salt::TextColor(FOREGROUND_RED | FOREGROUND_INTENSITY) << "FATAL: unhandled exception " << salt::TextColor(0x07) << "---\n" << e.what() << std::endl;
+        std::cerr << "--- " << salt::Color::LIGHT_RED << "FATAL: unhandled exception " << salt::Color::WHITE << "---\n" << e.what() << std::endl;
         return -20;
 
     } catch (...) {
         std::cerr << "fatal: unknown exception" << std::endl;
         return -30;
     }
+
 }
 
 

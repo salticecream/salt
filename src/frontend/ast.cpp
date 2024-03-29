@@ -242,6 +242,7 @@ Value* IfExprAST::code_gen() {
     else
         print_fatal("Wrong type for comparison, only i1 and i32 supported");
 
+
     // Let fn be the current function that we're working with.
     Function* fn = gen->builder->GetInsertBlock()->getParent();
 
@@ -257,17 +258,17 @@ Value* IfExprAST::code_gen() {
     // Emit the true_expr value.
     gen->builder->SetInsertPoint(true_expr_bb);
     Value* true_expr_val = true_expr_->code_gen();
-    gen->builder->CreateBr(merge_bb); // "return" from the if expression
+    gen->builder->CreateBr(merge_bb); // make code to "return" from the if expression at the end of this block
 
-    true_expr_bb = gen->builder->GetInsertBlock(); // ?????????? the fuck
+    true_expr_bb = gen->builder->GetInsertBlock(); // save this block for later.
 
     // Emit the false_expr value.
     fn->insert(fn->end(), false_expr_bb);
     gen->builder->SetInsertPoint(false_expr_bb);
     Value* false_expr_val = false_expr_->code_gen();
-    gen->builder->CreateBr(merge_bb); // "return" from the if expression
+    gen->builder->CreateBr(merge_bb); // make code to "return" from the if expression at the end of this block
 
-    false_expr_bb = gen->builder->GetInsertBlock(); // ?????????? the fuck
+    false_expr_bb = gen->builder->GetInsertBlock(); // save this block for later.
 
     // Emit the merge block.
     fn->insert(fn->end(), merge_bb);

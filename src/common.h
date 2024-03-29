@@ -302,10 +302,5 @@ namespace salt {
 
 }
 
-template <typename T>
-T&& cast_to_rvalue(T& t) {
-    return (T&&) t;
-}
-
 // "this feature is not yet implemented!"
 #define TODO() (salt::print_fatal((std::string("Not yet implemented in ") + __FUNCTION__ + " at " __FILE__ + ", line " + std::to_string(__LINE__)).c_str()))
