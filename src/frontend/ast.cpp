@@ -848,9 +848,10 @@ Function* FunctionAST::code_gen() {
         print_fatal(IRGeneratorException(this->decl()->line(), this->decl()->col(), "In FunctionAST::code_gen(): failed DeclarationAST::code_gen()"));
     
     // Check that the function has not already been defined (it's ok if it has been declared though)
-    if (!f->empty())
-        print_fatal(IRGeneratorException(this->decl()->line(), this->decl()->col(),
-            "cannot redefine function " + this->decl()->name()));
+    if (!f->empty()) {
+        print_error(f_string("%d:%d: redefinition of function %s", decl()->line(), decl()->col(), decl()->name().c_str()));
+        return f;
+    }
 
     // Tell the LLVM builder to generate code inside this block (the function).
     // Control flow comes later.
