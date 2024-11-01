@@ -1,6 +1,7 @@
 #include "common.h"
 #include <limits.h>
 #include <cstdarg>
+#include "frontend/miniregex.h"
 
 using namespace salt;
 
@@ -150,6 +151,131 @@ void salt::print_error(const std::string& str) {
 void salt::print_fatal(const std::string& str, int exit_code) {
 	any_compile_error_occured = true;
 	print_colored("FATAL: ", Color::LIGHT_RED);
-	std::cout << str << std::endl;
+	std::puts(str.c_str());
 	std::exit(exit_code);
+}
+
+[[noreturn]]
+void salt::print_fatal(const char* str, int exit_code) {
+	any_compile_error_occured = true;
+	print_colored("FATAL: ", Color::LIGHT_RED);
+	std::puts(str);
+	std::exit(exit_code);
+}
+
+static uint64_t upow(uint64_t x, uint64_t y) {
+	uint64_t res = 1;
+	for (int i = 0; i < y; i++)
+		res *= x;
+
+	return res;
+}
+
+ParsedNumber salt::parse_num_literal(const std::string& _s, int radix) {
+	constexpr char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+	ParsedNumber ret_val = {};
+	ret_val.type = PARSED_ERROR;
+	ret_val.u64 = 0;
+
+	if (_s.size() < 1 || _s.size() < 2 && _s[0] == '-') {
+		ret_val.type = PARSED_BAD_NUMBER;
+		return ret_val;
+	}
+
+	if (radix < 2 || radix > 36) {
+		ret_val.type = PARSED_BAD_RADIX;
+		return ret_val;
+	}
+
+	constexpr uint64_t max_uint = -1;
+
+	bool negative = _s[0] == '-';
+	std::string_view s = std::string_view(_s.c_str() + negative);
+
+	// look at what we need to expect
+	bool expect_float = false;
+	if (s.find('.') != s.npos)
+		expect_float = true;
+
+	if (expect_float) {
+		errno = 0;
+		double res = std::strtod(_s.c_str(), nullptr);
+		if (errno)
+			ret_val.type = PARSED_ERROR;
+		else
+			ret_val.type = PARSED_FLOAT;
+		ret_val.f64 = res;
+		return ret_val;
+	}
+
+
+	// remember that s is the part of the number excluding the - sign
+	size_t len = s.size();
+	if (string_starts_with(s.data(), "0x") || string_starts_with(s.data(), "0X"))
+		radix = 16;
+	else if (string_starts_with(s.data(), "0b") || string_starts_with(s.data(), "0B"))
+		radix = 2;
+	else if (string_starts_with(s.data(), "0"))
+		radix = 8;
+
+	// expect an integer in base "radix"
+	ret_val.type = negative ? PARSED_NEG_INT : PARSED_POS_INT;
+	ret_val.u64 = 0;
+	uint64_t res = 0;
+	uint64_t old_res = 0;
+
+	// optimization for radix <= 10
+	if (radix <= 10) {
+		uint64_t digit_value = 1;
+		uint64_t old_digit_value = 1;
+
+		int start_digit = 0;
+		if (
+			string_starts_with(s.data(), "0x")
+			|| string_starts_with(s.data(), "0X")
+			|| string_starts_with(s.data(), "0b")
+			|| string_starts_with(s.data(), "0B")
+			) {
+			start_digit = 2;
+		}
+
+		for (int digit = s.size() - 1; digit >= start_digit; digit--) {
+
+			// bad digit, for example digit 2 in binary literal
+			if (s[digit] < '0' || s[digit] - '0' >= radix) {
+				ret_val.type = PARSED_BAD_RADIX;
+				return ret_val;
+			}
+
+			res += digit_value * uint64_t(s[digit] - '0');
+			digit_value *= radix;
+
+
+
+			// check overflow
+			// if res overflowed, or 
+			if (res < old_res || digit_value < old_digit_value) {
+				ret_val.type = PARSED_OVERFLOW;
+				return ret_val;
+			}
+
+			old_res = res;
+			old_digit_value = old_digit_value;
+		}
+
+		if (negative) {
+			if (res > uint64_t(INT64_MIN))
+				ret_val.type = PARSED_OVERFLOW; // here underflow actually
+			res = -res;
+		}
+
+		ret_val.u64 = res;
+		
+			
+		return ret_val;
+	}
+
+	printf("Whoops, the radix of %s is %d!\n", s.data(), radix);
+	TODO();
+	return ret_val;
 }

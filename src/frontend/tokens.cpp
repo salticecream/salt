@@ -7,7 +7,7 @@ this file is part of my salt project, which uses the gnu gplv3 license
 Token::Token(Token_e value) {
     this->val_ = value;
     this->data_ = std::string("");
-    this->count_ = 1;
+    this->count_ = 0;
     this->col_ = lexer_col;
     this->line_ = lexer_line;
 }
@@ -15,7 +15,7 @@ Token::Token(Token_e value) {
 Token::Token(Token_e value, const std::string& data) {
     this->val_ = value;
     this->data_ = data;
-    this->count_ = 1;
+    this->count_ = 0;
     this->col_ = lexer_col;
     this->line_ = lexer_line;
 }
@@ -80,6 +80,17 @@ int Token::count() const {
     return this->count_;
 }
 
+bool Token::is_whitespace() const {
+    switch (val()) {
+    case TOK_WHITESPACE:
+    case TOK_TAB:
+    case TOK_EOL:
+        return true;
+    default:
+        return false;
+    }
+}
+
 std::ostream& operator<<(std::ostream& os, const Token& token) {
     if (token.str().empty())
         os << "UNPRINTABLE TOKEN NUMBER " << int(token.val());
@@ -90,7 +101,7 @@ std::ostream& operator<<(std::ostream& os, const Token& token) {
         os << " (\"" << token.data() << "\")";
     
     int count = token.count();
-    if (count > 1)
+    if (count > 0)
         os << " [" << count << ']';
 
     return os;
@@ -116,8 +127,6 @@ std::string Token::str() const {
         return "IDENT";
     case TOK_NUMBER:
         return "NUMBER";
-    case TOK_DECIMAL:
-        return "DECIMAL";
     case TOK_CHAR:
         return "CHAR";
     case TOK_STRING:
@@ -165,6 +174,8 @@ std::string Token::str() const {
         return "INCREMENT";
     case TOK_DECREMENT:
         return "DECREMENT";
+    case TOK_AS:
+        return "AS";
     case TOK_LEFT_ANGLE:
         return "LEFT_ANGLE";
     case TOK_RIGHT_ANGLE:
@@ -183,6 +194,8 @@ std::string Token::str() const {
         return "COLON";
     case TOK_COMMA:
         return "COMMA";
+    case TOK_DOT:
+        return "DOT";
     case TOK_EQUALS:
         return "EQUALS";
     case TOK_NOT_EQUALS:
@@ -224,7 +237,7 @@ std::string Token::str() const {
     case TOK_ELSE:
         return "ELSE";
     case TOK_THEN:
-        return "ELSE";
+        return "THEN";
     case TOK_REPEAT:
         return "REPEAT";
     case TOK_RETURN:
@@ -241,7 +254,46 @@ std::string Token::str() const {
         return "COMMENT_START";
     case TOK_COMMENT_END:
         return "COMMENT_END";
-
+    case TOK_VOID:
+        return "VOID";
+    case TOK_BOOL:
+        return "BOOL";
+    case TOK_CHAR_TYPE:
+        return "CHAR_TYPE";
+    case TOK_SHORT:
+        return "SHORT";
+    case TOK_INT:
+        return "INT";
+    case TOK_LONG:
+        return "LONG";
+    case TOK_SSIZE:
+        return "SSIZE";
+    case TOK_FLOAT:
+        return "FLOAT";
+    case TOK_DOUBLE:
+        return "DOUBLE";
+    case TOK_UCHAR:
+        return "UCHAR";
+    case TOK_USHORT:
+        return "USHORT";
+    case TOK_UINT:
+        return "UINT";
+    case TOK_ULONG:
+        return "ULONG";
+    case TOK_USIZE:
+        return "USIZE";
+    case TOK_UNSIGNED:
+        return "UNSIGNED";
+    case TOK_TRUE:
+        return "TRUE";
+    case TOK_FALSE:
+        return "FALSE";
+    case TOK_NULL:
+        return "NULL";
+    case TOK_INF:
+        return "INF";
+    case TOK_NAN:
+        return "NAN";
         
     default:
         if (TOK_MIN < this->val() && this->val() < TOK_TOTAL)
@@ -251,6 +303,8 @@ std::string Token::str() const {
     }
 }
 
+
+[[deprecated("TOK_PTR is deprecated")]]
 Token Token::as_pointer() const {
     if (this->val() != TOK_TYPE)
         salt::print_fatal(salt::Exception((std::to_string(line_) + ':' + std::to_string(col_) + ':' + "(internal) Bad call to Token::to_pointer()").c_str()));

@@ -4,12 +4,16 @@
 #include "../common.h"
 #include "irgenerator.h"
 #include "flags.h"
+#include "sighandlers.h"
 
 #ifdef NDEBUG
 #define ASTCNDEBUG 1
 #endif
 
+
 static int files_compiled = 0;
+
+
 
 // Only for windows, only to .o
 static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*/) {
@@ -62,8 +66,8 @@ static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*
     
 }
 
-static void set_flags(const std::vector<CompilerFlag> flags) {
-    
+static void set_flags(const std::vector<CompilerFlag>& flags) {
+
     for (const CompilerFlag compiler_flag : flags) {
         const Flags_e& flag = compiler_flag.flag;
 
@@ -80,11 +84,13 @@ static void set_flags(const std::vector<CompilerFlag> flags) {
             salt::print_fatal("bad flag to set_flags()");
         }
     }
+
+    salt::dboutv << "Flags set\n";
 }
 
 
 int main(int argc, const char** argv) {
-
+    register_signal_handlers();
     std::vector<const char*> input_files;
     std::vector<CompilerFlag> compiler_flags;
         
@@ -107,8 +113,8 @@ int main(int argc, const char** argv) {
         salt::print_fatal("no input files");
 
     set_flags(compiler_flags);
-    MiniRegex::fill_types();
     BinaryOperator::fill_map();
+    salt::fill_types();
 
     try {
         for (const char* input_file : input_files) {
@@ -133,6 +139,8 @@ int main(int argc, const char** argv) {
             Parser::destroy();
             IRGenerator::destroy();
         }
+        if (!any_compile_error_occured)
+            salt::dbout << salt::Color::GREEN << "\nCompilation success!\n" << salt::Color::WHITE;
         return 0;
         
     // Exception handling

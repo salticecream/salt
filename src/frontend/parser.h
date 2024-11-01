@@ -14,11 +14,20 @@ class Parser {
 private:
     int current_idx;
     static Parser* instance; // Singleton just like Lexer.
-    const std::vector<Token>& vec;;
+    const std::vector<Token>& vec;
+    /// @todo:
+    // there should be a vector of scopes, scopes[0] will be named_values in global scope, scopes[1] will be named_values in scope 1 etc, and current scope will be scopes.back()
+
+    std::unordered_map<std::string, TypeInstance> named_values;
+    std::unordered_map<std::string, TypeInstance> named_functions; /// @todo: include expected args also
+    std::unordered_map<std::string, llvm::Constant*> named_strings;
+    bool is_parsing_extern;
     Parser(const std::vector<Token>& vec_ref);
 
     // Helper functions for Parser::parse().
+    /// @todo: add SCOPES
     salt::Result<Expression> parse_number_expr();
+    salt::Result<Expression> parse_string_expr();
     salt::Result<Expression> parse_paren_expr();
     salt::Result<Expression> parse_ident_expr();
     salt::Result<Expression> parse_primary();
@@ -26,6 +35,7 @@ private:
     salt::Result<Expression> parse_binop_rhs(int prec, Expression lhs);
     salt::Result<Expression> parse_if_expr();
     salt::Result<Expression> parse_repeat_expr();
+    salt::Result<Expression> parse_reserved_constant();
     salt::Result<std::unique_ptr<DeclarationAST>> parse_declaration();
     salt::Result<std::unique_ptr<FunctionAST>> parse_function();
     salt::Result<std::unique_ptr<DeclarationAST>> parse_extern();
@@ -34,7 +44,9 @@ private:
     
 
     void skip_whitespace();
-    void next();
+    void skip_whitespace_back();
+    int next(); // returns delta between new and old positions
+    int back(); // returns delta between new and old positions
     bool can_go_next();
 
     salt::Result<void> handle_extern();

@@ -5,8 +5,13 @@ this file is part of my salt project, which uses the gnu gplv3 license
 
 #include <string>
 #include <iostream>
-#include "types.h"
 #include "../common.h"
+
+#define TOKEN_STR_NAN "nan"
+#define TOKEN_STR_NULL "null"
+#define TOKEN_STR_TRUE "true"
+#define TOKEN_STR_FALSE "false"
+#define TOKEN_STR_INF "inf"
 
 extern int lexer_line;
 extern int lexer_col;
@@ -40,8 +45,7 @@ enum Token_e {
 
     // other
     TOK_IDENT,              // identifier
-    TOK_NUMBER,             // only int for now
-    TOK_DECIMAL,            // add later
+    TOK_NUMBER,             // integer or floating point. count = 0 -> int, count = 1 -> float
     TOK_CHAR,               // single quotes
     TOK_STRING,             // in double quotes
     TOK_PTR,                // TOK_TYPE + any number of TOK_MUL
@@ -67,6 +71,7 @@ enum Token_e {
     TOK_CARAT,              // ^
     TOK_INCREMENT,          // ++
     TOK_DECREMENT,          // --
+    TOK_AS,                 // as
 
     // brackets
     TOK_LEFT_ANGLE,         // <
@@ -80,6 +85,7 @@ enum Token_e {
     TOK_ASSIGN,             // = (assignment)
     TOK_COLON,              // :
     TOK_COMMA,              // ,
+    TOK_DOT,                // .
 
     // equality
     TOK_EQUALS,             // ==
@@ -128,8 +134,30 @@ enum Token_e {
     TOK_COMMENT_END,        // */
 
 
-    
-    
+    // default types, should not be pushed to the Lexer's vector
+    TOK_VOID,
+    TOK_BOOL,
+    TOK_CHAR_TYPE,
+    TOK_SHORT,
+    TOK_INT,
+    TOK_LONG,
+    TOK_SSIZE,
+    TOK_FLOAT,
+    TOK_DOUBLE,
+    TOK_UCHAR,
+    TOK_USHORT,
+    TOK_UINT,
+    TOK_ULONG,
+    TOK_USIZE,
+    TOK_UNSIGNED,
+
+    // constants
+    TOK_TRUE,
+    TOK_FALSE,
+    TOK_NULL,
+    TOK_INF,
+    TOK_NAN,
+
     
     TOK_TOTAL
 }; 
@@ -175,6 +203,7 @@ public:
     // Convert the token to a pointer if possible
     Token as_pointer() const;
 
+    bool is_whitespace() const;
 };
 
 // An exception that is thrown when a bad char is encountered.

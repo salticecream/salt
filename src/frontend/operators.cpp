@@ -7,6 +7,9 @@ namespace BinaryOperator {
     std::map<Token_e, int> BINOP_MAP;
 
     void fill_map() {
+        salt::dboutv << "Filling map of binary operators\n";
+        BINOP_MAP[TOK_AS] = millions(22);
+
         BINOP_MAP[TOK_MUL] = millions(21);
         BINOP_MAP[TOK_DIV] = BINOP_MAP[TOK_MUL];
 

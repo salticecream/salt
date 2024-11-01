@@ -1,0 +1,75 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "salt",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#chars"
+		},
+		{
+			"include": "#reserved-words"
+		},
+		{
+			"include": "#function-definition"
+		},
+		{
+			"include": "#function-call"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.salt",
+				"match": "\\b(if|else|then|repeat|while|for|return)\\b"
+			}]
+		},
+		"reserved-words": {
+			"patterns": [{
+				"name": "keyword.other",
+				"match": "\\b(fn|extern|struct|char|let|const|and|or|not|void|bool|short|int|long|ssize|float|double|uchar|ushort|uint|ulong|usize|unsigned|true|false|inf|null|nan|as)\\b"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.salt",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.salt",
+					"match": "\\\\."
+				}
+			]
+		},
+		"chars": {
+			"name": "string.quoted.single.salt",
+			"begin": "'",
+			"end": "'",
+			"patterns": [
+				{
+					"name": "constant.character.escape.salt",
+					"match": "\\\\."
+				}
+			]
+		},
+		"function-definition": {
+            "match": "\\bfn\\s+(\\w+)\\s*\\(.*?\\)\\s*->\\s*(\\w+)\\s*:",
+            "captures": {
+                "1": { "name": "entity.name.function.mylanguage" }
+            },
+            "name": "entity.name.function.salt"
+        },
+		"function-call": {
+            "match": "\\b(\\w+)\\s*\\(",
+            "captures": {
+                "1": { "name": "entity.name.function.mylanguage" }
+            },
+            "name": "entity.name.function.salt"
+        }
+	},
+	"scopeName": "source.sl"
+}

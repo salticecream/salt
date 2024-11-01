@@ -2,6 +2,8 @@
 #include "operators.h"
 #include "ast.h"
 #include "miniregex.h"
+#include "irgenerator.h"
+
 #define PARSER_MAX_ERRORS 20
 
 using namespace salt;
@@ -24,7 +26,7 @@ void Parser::destroy() {
     Parser::instance = nullptr;
 }
 
-Parser::Parser(const std::vector<Token>& vec_ref) : vec(vec_ref) {
+Parser::Parser(const std::vector<Token>& vec_ref) : vec(vec_ref), is_parsing_extern(false) {
     this->current_idx = 0;
 }
 
@@ -43,7 +45,8 @@ bool Parser::can_go_next() {
     return current_idx < vec.size() - 1;
 }
 
-void Parser::next() {
+int Parser::next() {
+    int cur_pos = current_idx;
     if (current_idx == vec.size() - 1)
         salt::print_fatal("current_idx reached vec size");
 
@@ -55,6 +58,7 @@ void Parser::next() {
 
     current_idx++;
     skip_whitespace();
+    return current_idx - cur_pos;
 }
 
 Result<Expression> Parser::parse_number_expr() {
@@ -63,13 +67,79 @@ Result<Expression> Parser::parse_number_expr() {
     if (vec[current_idx].val() == TOK_SUB) {
         negative = true;
         if (vec[current_idx + 1].val() != TOK_NUMBER)
-            return ParserException(vec[current_idx], "expected number after unary \"-\" (negating expressions NYI)");
+            return ParserException(vec[current_idx], "expected number after unary \"-\" (negating expressions NYI, please multiply by -1)");
         this->next();
     }
 
-    int val = negative ? -std::atoi(vec[current_idx].data().c_str()) : std::atoi(vec[current_idx].data().c_str());
-        
-    auto res = std::make_unique<IntExprAST>(vec[current_idx], val);
+    int64_t val_int = 0;
+    double val_float = (1.0e300 * 1.0e300) - (1.0e300 * 1.0e300); // NaN
+    bool should_return_float = false;
+    switch (vec[current_idx].count()) {
+    case 0:
+        break;
+    case 1:
+        should_return_float = true;
+        break;
+    default:
+        print_fatal(f_string("Bad count for number token: %d (expected 0 or 1)", vec[current_idx].count()));
+    }
+
+    bool error = false;
+
+    if (vec[current_idx].data() == TOKEN_STR_INF) {
+        should_return_float = true;
+        val_float = 1.0e300 * 1.0e300 * (1 - 2 * negative);
+    } else {
+        std::string string_to_parse;
+        if (negative)
+            string_to_parse += '-';
+        string_to_parse += vec[current_idx].data();
+
+        ParsedNumber pn = parse_num_literal(string_to_parse);
+        if (pn.type < 0)
+            error = true;
+
+        switch (pn.type) {
+        case PARSED_NEG_INT:
+        case PARSED_POS_INT:
+            val_int = static_cast<int64_t>(pn.u64);
+            // print_warning(f_string("parsed integer: %lld", val_int));
+            break;
+        case PARSED_FLOAT:
+            val_float = pn.f64;
+            // print_warning(f_string("parsed floating value: %lf", val_float));
+            break;
+        case PARSED_BAD_RADIX:
+        case PARSED_BAD_NUMBER:
+        case PARSED_OVERFLOW:
+        case PARSED_ERROR:
+        default:
+            break;
+        }
+
+    }
+    
+    int token_delta = this->next();
+    if (!error) {
+        if (should_return_float)
+            return std::make_unique<ValExprAST>(vec[current_idx - 1], val_float, SALT_TYPE_DOUBLE);
+        else
+            return std::make_unique<ValExprAST>(vec[current_idx - 1], val_int, SALT_TYPE_LONG);
+    }
+
+    print_error(f_string("%d:%d: invalid numeric literal",
+        vec[current_idx - token_delta].line(),
+        vec[current_idx - token_delta].col()));
+
+    if (should_return_float)
+        return std::make_unique<ValExprAST>(vec[current_idx - 1], val_float, SALT_TYPE_DOUBLE);
+    else
+        return std::make_unique<ValExprAST>(vec[current_idx - 1], val_int, SALT_TYPE_LONG);
+}
+
+Result<Expression> Parser::parse_string_expr() {
+    ASSERT(vec[current_idx].val() == TOK_STRING);
+    auto res = std::make_unique<ValExprAST>(vec[current_idx], vec[current_idx].data());
     this->next();
     return std::move(res);
 }
@@ -86,6 +156,7 @@ Result<Expression> Parser::parse_paren_expr() {
 }
 
 /// @todo: add type here, dont assume "int" (but how?)
+// ans: add an UnknownType, and convert it implicitly to the correct type when generating the code
 Result<Expression> Parser::parse_ident_expr() {
     std::string ident_name = vec[current_idx].data();
     if (!is_valid_identifier(ident_name.c_str()))
@@ -95,15 +166,26 @@ Result<Expression> Parser::parse_ident_expr() {
     
     this->next();
 
+    
+
     // Check if this is NOT a function call, if so, return the identifier as its own expression
     if (vec[current_idx].val() != TOK_LEFT_BRACKET) {
+
+        // Get the type of that identifier
+        TypeInstance ti = named_values[ident_name];
+        if (!ti)
+            return Exception(f_string("variable %s does not exist", ident_name.c_str()));
+
         salt::dboutv << f_string("Making variable with name %s\n", vec[ident_idx].data());
-        return std::make_unique<VariableExprAST>(vec[ident_idx]);
+        return std::make_unique<VariableExprAST>(vec[ident_idx], ti);
     }
     
 
     // this identifier is a function call. treat it like one.
     std::vector<Expression> args;
+    TypeInstance call_return_type = named_functions[ident_name];
+    if (!call_return_type)
+        return Exception(f_string("Function %s does not exist", ident_name.c_str()));
 
     // skip (
     this->next();
@@ -138,7 +220,33 @@ Result<Expression> Parser::parse_ident_expr() {
     // we finally reached the end of the function call, current token is ). skip that.
     this->next();
 
-    return std::make_unique<CallExprAST>(vec[ident_idx], std::move(args));
+    return std::make_unique<CallExprAST>(vec[ident_idx], std::move(args), call_return_type);
+}
+
+Result<Expression> Parser::parse_reserved_constant() {
+    Expression res = nullptr;
+    const Token& cur = vec[current_idx];
+    switch (cur.val()) {
+    case TOK_NULL:
+        res = std::make_unique<ValExprAST>(cur, int64_t(0), TypeInstance(SALT_TYPE_VOID, 1));
+        break;
+    case TOK_INF:
+        res = std::make_unique<ValExprAST>(cur, 1.0e300 * 1.0e300, SALT_TYPE_DOUBLE);
+        break;
+    case TOK_NAN:
+        res = std::make_unique<ValExprAST>(cur, (1.0e300 * 1.0e300) - (1.0e300 * 1.0e300), SALT_TYPE_DOUBLE);
+        break;
+    case TOK_TRUE:
+        res = std::make_unique<ValExprAST>(cur, int64_t(1), SALT_TYPE_BOOL);
+        break;
+    case TOK_FALSE:
+        res = std::make_unique<ValExprAST>(cur, int64_t(0), SALT_TYPE_BOOL);
+        break;
+    default:
+        print_fatal(f_string("Expected reserved constant after call to Parser::parse_reserved_constant, found %s", vec[current_idx].str()));
+    }
+    this->next();
+    return std::move(res);
 }
 
 Result<Expression> Parser::parse_primary() {
@@ -151,15 +259,23 @@ Result<Expression> Parser::parse_primary() {
     case TOK_NUMBER:
     case TOK_SUB:
         return parse_number_expr();
+    case TOK_STRING:
+        return parse_string_expr();
     case TOK_LEFT_BRACKET:
         return parse_paren_expr();
     case TOK_IF:
         return parse_if_expr();
     case TOK_REPEAT:
         return parse_repeat_expr();
+    case TOK_NULL:
+    case TOK_INF:
+    case TOK_NAN:
+    case TOK_TRUE:
+    case TOK_FALSE:
+        return parse_reserved_constant();
     default:
         return ParserException(vec[current_idx],
-            "expected primary expression (that is, a number literal, a function call, an identifier, \"if\" or \"repeat\" keywords, or \"(\")");
+            "expected primary expression (that is, a literal, a function call, an identifier, \"if\" or \"repeat\" keywords, or \"(\")");
     }
 }
 
@@ -190,6 +306,20 @@ Result<Expression> Parser::parse_binop_rhs(int prec, Expression lhs) {
 
         // We evaluate the (primary) expression on the rhs of op. For example, if the expression is 1 + 2 * 3
         // then lhs is 1, op is '+' and rhs is (currently) 2.
+
+        // Note that a type (like "int") is allowed here, if "op" is TOK_AS.
+        if (op.val() == TOK_AS) {
+            if (vec[current_idx].val() == TOK_TYPE) {
+                Expression ty = std::make_unique<TypeExprAST>(vec[current_idx]);
+                this->next();
+                Expression res = std::make_unique<BinaryExprAST>(op, std::move(lhs), std::move(ty));
+                return parse_binop_rhs(BinaryOperator::get_precedence(TOK_AS), std::move(res));
+                // return std::make_unique<BinaryExprAST>(op, std::move(lhs), std::move(ty));
+            }
+            else
+                return ParserException(vec[current_idx], "expected a type after \"as\" keyword");
+        }
+
         Result<Expression> rhs_res = parse_primary(); 
 
         // If parsing the primary expression fails, we return the error contained within.
@@ -268,6 +398,7 @@ Result<Expression> Parser::parse_if_expr() {
 
 
 Result<std::unique_ptr<DeclarationAST>> Parser::parse_declaration() {
+    named_values.clear();
     // We assume that the current token is TOK_FN
     if (vec[current_idx].val() != TOK_FN)
         return ParserException(vec[current_idx], "expected keyword \"fn\"");
@@ -288,7 +419,7 @@ Result<std::unique_ptr<DeclarationAST>> Parser::parse_declaration() {
 
     // create an arg vector and populate it, just like we did with the function call
     // declaration in parse_ident_expr()
-    std::vector<Variable> args;
+    std::vector<std::unique_ptr<VariableExprAST>> args;
 
     this->next(); // now we are either at the first argument or at a ')'
     if (vec[current_idx].val() != TOK_RIGHT_BRACKET)
@@ -296,13 +427,29 @@ Result<std::unique_ptr<DeclarationAST>> Parser::parse_declaration() {
             // current argument
 
             const Token& tok = vec[current_idx];
-            if (tok.val() != TOK_IDENT) /// @todo: make this TOK_TYPE (for typed variable)
-                return ParserException(vec[current_idx], "expected identifier");
-            const std::string& arg_name = tok.data();
+            if (tok.val() != TOK_TYPE)
+                return ParserException(vec[current_idx], "expected type");
+            const salt::Type* type = salt::all_types[tok.data()];
+            int ptr_layers = tok.count();
+
+            if (!type)
+                type = SALT_TYPE_ERROR;
+            this->next(); // go to the name of the argument
+
+
+            const std::string& arg_name = vec[current_idx].data();
             salt::dbout << f_string("arg_name : %s\n", arg_name.c_str());
 
             /// @todo: add more types!!!
-            Variable arg = Variable(arg_name, DEFAULT_TYPES[DT_INT]);
+            
+            std::unique_ptr<VariableExprAST> arg = nullptr;
+            if (!ptr_layers) {
+                arg = std::make_unique<VariableExprAST>(vec[current_idx], type);
+                named_values.insert({ vec[current_idx].data(), type });
+            } else {
+                arg = std::make_unique<VariableExprAST>(vec[current_idx], TypeInstance(type, ptr_layers));
+                named_values.insert({ vec[current_idx].data(), TypeInstance(type, ptr_layers) });
+            }
 
             args.push_back(std::move(arg));
             this->next(); // we should be at a comma, or a ')' now
@@ -318,7 +465,39 @@ Result<std::unique_ptr<DeclarationAST>> Parser::parse_declaration() {
         return ParserException(vec[current_idx], "expected \")\"");
     this->next();
 
-    return std::make_unique<DeclarationAST>(function_identifier_token, std::move(args));
+    // If this function returns anything, we need to check the return value before creating the declaration
+    // the function will show this by having a -> and then the return type
+    // Otherwise, we assume void
+
+    TypeInstance return_type = SALT_TYPE_VOID;
+
+    if (vec[current_idx].val() == TOK_ARROW) {
+        this->next();
+        std::string& type_name = vec[current_idx].data();
+        
+        if (type_name.empty() || !is_type(type_name))
+            return ParserException(vec[current_idx], "expected type name after -> symbol");
+        
+        else if (const Type* new_return_type = salt::all_types[type_name]) {
+            if (int count = vec[current_idx].count()) {
+                return_type.pointee = new_return_type;
+                return_type.ptr_layers = count;
+                return_type.type = SALT_TYPE_PTR;
+            } else {
+                return_type = new_return_type;
+            }
+            this->next();
+        }
+        
+        else
+            return ParserException(vec[current_idx], "expected type name after -> symbol");
+    }   
+
+    if (named_functions[function_name])
+        return Exception (f_string("%d:%d: function %s already exists",function_identifier_token.line(), function_identifier_token.col(), function_name.c_str()).c_str());
+    named_functions[function_name] = return_type;
+    return std::make_unique<DeclarationAST>(function_identifier_token, std::move(args), return_type);
+
 }
 
 Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
@@ -329,10 +508,11 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
 
     std::unique_ptr<DeclarationAST> decl = decl_res.unwrap();
 
+    // Check the return type, if none is specified then it's implicitly void, otherwise we want an arrow and a type
     if (vec[current_idx].val() != TOK_COLON)
         return ParserException(vec[current_idx], "expected \":\" after non-extern function declaration");
     
-    this->next(); // move fd from ':'
+    int token_delta = this->next(); // move fd from ':'. if the function creation fails then go back this many steps
     Result<Expression> body_res = parse_expression();
     
     // If parsing an expression for the body fails, then return the error contained inside
@@ -340,8 +520,24 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
         return body_res.unwrap_err();
 
     Expression body = body_res.unwrap();
+    std::vector<Expression> ret_vec;
+    ret_vec.push_back(std::move(body));
+    // static_assert("Here is the <memory> l3465 bug, it's trying to make a functionAST" == nullptr);
 
-    return std::make_unique<FunctionAST>(std::move(decl), std::move(body));
+    // here we check if the function contains bad variables (like variables of type void)
+    bool has_bad_args = false;
+    for (const std::unique_ptr<VariableExprAST>& var : decl->args())
+        if (var->type() == SALT_TYPE_VOID) {
+            has_bad_args = true;
+            break;
+        }
+
+    if (has_bad_args) {
+        named_functions.erase(decl->name());
+        return Exception(f_string("Function %s contains variable(s) of void type", decl->name()));
+    }
+
+    return std::make_unique<FunctionAST>(std::move(decl), std::move(ret_vec));
 }
 
 Result<std::unique_ptr<DeclarationAST>> Parser::parse_extern() {
@@ -364,8 +560,9 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_top_level_expr() {
         return expr_res.unwrap_err();
 
     Expression expr = expr_res.unwrap();
-    auto decl = std::make_unique<DeclarationAST>(Token(TOK_NONE), std::vector<Variable>());
-    return std::make_unique<FunctionAST>(std::move(decl), std::move(expr));
+    auto decl = std::make_unique<DeclarationAST>(Token(TOK_NONE), std::vector<std::unique_ptr<VariableExprAST>>());
+    print_fatal(f_string("%d:%d: Tried to parse top-level expression, this is unsupported", vec[current_idx].line(), vec[current_idx].col()));
+    return Exception("very very very bad logic error");
 }
 
 Result<Expression> Parser::parse_repeat_expr() {
@@ -504,12 +701,14 @@ ParserReturnType Parser::parse() {
             case TOK_FN:
                 res = handle_function();
                 break;
+            /*
             case TOK_NUMBER:
             case TOK_SUB:
             case TOK_REPEAT:
             case TOK_IF:
                 res = handle_top_level_expr();
                 break;
+            */
             default: 
                 res = handle_function();
                 break;

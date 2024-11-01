@@ -92,9 +92,16 @@ namespace salt {
     extern MaybeStream dberrv;
 
     // expects a null-terminated string that corresponds to a number. anything other than digits, a '.' or a leading '-' will cause an error.
+
+    [[deprecated]]
     long long atoll(const char* s);
+
+    [[deprecated]]
     unsigned long long atoull(const char* s);
+
+    [[deprecated]]
     int atoi(const char* s);
+
     std::string reverse(const std::string& s);
     std::string f_string(const char* format, ...);
     long long llrand();
@@ -111,6 +118,9 @@ namespace salt {
 
     [[noreturn]]
     void print_fatal(const std::string& error, int exit_code = 1);
+
+    [[noreturn]]
+    void print_fatal(const char* error, int exit_code = 1);
 
     /// @todo: maybe one day make a better Result class
     /* 
@@ -299,8 +309,30 @@ namespace salt {
 
     #endif /* ifdef SALT_WINDOWS */
 
+    enum ParsedNumber_e {
+        PARSED_ERROR = -9999,
+        PARSED_OVERFLOW,
+        PARSED_BAD_NUMBER,
+        PARSED_BAD_RADIX,
+        PARSED_POS_INT = 0,
+        PARSED_NEG_INT,
+        PARSED_FLOAT
+    };
+    struct ParsedNumber {
+        ParsedNumber_e type;
+        union {
+            uint64_t u64;
+            double f64;
+        };
+    };
 
+    ParsedNumber parse_num_literal(const std::string& s, int int_radix = 10);
 }
 
+
+
+#define ASSERT(cond) \
+if (!(cond))\
+    print_fatal(f_string("Assertion failed: `%s`\n\t in: %s\n\t at: %s:%d", #cond, __FUNCTION__, __FILE__, __LINE__))
 // "this feature is not yet implemented!"
 #define TODO() (salt::print_fatal((std::string("Not yet implemented in ") + __FUNCTION__ + " at " __FILE__ + ", line " + std::to_string(__LINE__)).c_str()))

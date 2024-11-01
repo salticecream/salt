@@ -2,20 +2,14 @@
 
 #include <vector>
 #include <string>
-#include "types.h"
 #include "../common.h"
+#include <unordered_map>
 
 extern const char ALLOWED_CHARS[];
-extern std::vector<Type> TYPES;
 extern const int ALLOWED_CHARS_LEN;
 extern const int ALLOWED_SYMBOLS_START;
 extern const char SEPARATOR_CHARS[];
-
-namespace MiniRegex
-{
-void fill_types();
-}
-
+constexpr size_t INVALID_INDEX = -1;
 inline bool is_digit(const char ch);
 inline bool is_whitespace(const char ch);
 inline bool ends_with_whitespace(const std::string& s);
@@ -34,8 +28,9 @@ bool is_allowed(const char ch);
 bool is_integer(const char* str);
 bool is_pointer(const std::string& s);
 bool string_ends_with(const char* str, const char* end);
-bool string_starts_with(const char* str, const char* end);
+bool string_starts_with(const char* str, const char* start);
 char last_whitespace(std::string& s);
+size_t string_to_dti(const char* str);
 
 inline bool is_digit(const char ch) {
     return (ch >= '0' && ch <= '9');

@@ -1,0 +1,2 @@
+fix invalid binops (like void + int) -> should return poison int
+void + void -> return poison int also

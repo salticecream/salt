@@ -1,0 +1,25 @@
+{
+  "name": "salt-highlighter",
+  "displayName": "salt-highlighter",
+  "description": "Syntax highlighting for salt",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "salt",
+      "aliases": ["salt", "salt"],
+      "extensions": [".sl"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "salt",
+      "scopeName": "source.sl",
+      "path": "./syntaxes/salt.tmLanguage.json"
+    }]
+  }
+}

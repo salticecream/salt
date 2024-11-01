@@ -7,7 +7,11 @@
 /*
 * Defines the IRGenerator class, which generates and optimizes LLVM IR.
 * If you were looking for the IR generation code, go to ast.cpp
+*
+* Due to reasons, the context is outside of the IRGenerator but should still be referred to using the IRGenerator
 */
+
+extern std::unique_ptr<llvm::LLVMContext> global_context;
 
 class IRGenerator {
 private:
@@ -16,7 +20,7 @@ private:
 
 public:
 	// The context is an opaque object that I don't understand, that won't be necessary to understand according to the tutorial
-	std::unique_ptr<llvm::LLVMContext> context;
+	std::unique_ptr<llvm::LLVMContext>& context;
 
 	// The builder is a helper object that makes it easy to generate LLVM instructions
 	std::unique_ptr<llvm::IRBuilder<>> builder;
@@ -27,6 +31,8 @@ public:
 	// Keeps track of all named values.
 	/// @todo: add scope (std::map of (Scope and std::map of std::string and llvm::Value*)) or similar)
 	std::map<std::string, llvm::Value*> named_values;
+
+	std::map<std::string, llvm::Constant*> named_strings;
 
 
 	// For optimization purposes

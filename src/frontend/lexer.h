@@ -23,6 +23,7 @@ private:
     int col_;
     int line_;
     int pos_;
+    std::vector<Token> vec;
     LexerState state_;
     static Lexer* instance_;
     std::vector<salt::Exception> errors_;
@@ -40,6 +41,7 @@ public:
 
     salt::Result<Token> next_token();
     Token end_token();
+    Token& last_non_whitespace();
     Lexer* test_lexer();
     void set_input_mode(LexerInputMode input_mode, std::unique_ptr<std::ifstream> stream);
     LexerInputMode input_mode() const;
@@ -55,9 +57,9 @@ public:
     const std::vector<salt::Exception>& errors();
 
     // don't use Lexer::tokenize(), use simple tokenize() instead
-    std::vector<Token> tokenize(const char* str = nullptr);
+    std::vector<Token>& tokenize(const char* str = nullptr);
 
 };
 
 // Parses the input file into tokens, which are stored in vec.
-std::vector<Token> tokenize(const char* str);
+std::vector<Token>& tokenize(const char* str);

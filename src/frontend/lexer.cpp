@@ -88,6 +88,19 @@ LexerInputMode Lexer::input_mode() const {
     return input_mode_;
 }
 
+Token& Lexer::last_non_whitespace() {
+    int current_pos = this->vec.size() - 1;
+    
+    for (int i = current_pos; i >= 0; i--) {
+        if (!(vec[i].is_whitespace())) {
+            return vec[i];
+        }
+    }
+
+    /// @todo? fix memory leak
+    return *(new Token(TOK_NONE));
+}
+
 
 
 int Lexer::next_char() {
@@ -165,6 +178,8 @@ Token Lexer::end_token() {
                 return Token(TOK_COLON);
             case ',':
                 return Token(TOK_COMMA);
+            case '.':
+                return Token(TOK_DOT);
 
 
             default:
@@ -228,7 +243,71 @@ Token Lexer::end_token() {
         lexer->current_string = cur_str.back();
         return Token(TOK_REPEAT);
 
-    
+    // Default types
+    } else if (string_res == "void") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_VOID);
+
+    } else if (string_res == "bool") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_BOOL);
+
+    } else if (string_res == "char") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_CHAR_TYPE);
+
+    } else if (string_res == "short") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_SHORT);
+
+    } else if (string_res == "int") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_INT);
+
+    } else if (string_res == "long") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_LONG);
+
+    } else if (string_res == "float") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_FLOAT);
+
+    } else if (string_res == "double") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_DOUBLE);
+
+    } else if (string_res == "ssize") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_SSIZE);
+
+    } else if (string_res == "unsigned") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_UNSIGNED);
+
+    } else if (string_res == "null") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_NULL);
+
+    } else if (string_res == "true") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_TRUE);
+
+    } else if (string_res == "false") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_FALSE);
+
+    } else if (string_res == "inf") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_INF);
+
+    } else if (string_res == "nan") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_NAN);
+
+    } else if (string_res == "as") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_AS);
+
 
     // These tokens have data, so before clearing the string, 
     // we need to copy that data
@@ -238,6 +317,7 @@ Token Lexer::end_token() {
         lexer->current_string = cur_str.back();
         return Token(TOK_NUMBER, _data);
         
+    /// @todo: fix is_type so that you dont need to call pointers __SaltPtr
     } else if (is_type(string_res)) {
         std::string _data = string_res;
         lexer->current_string = cur_str.back();
@@ -315,14 +395,11 @@ Result<Token> Lexer::next_token() {
     // please only 2 cases in this bracket, otherwise everything breaks
     case LEXER_STATE_CHAR:
     case LEXER_STATE_STRING: {
-        TODO();
         // Not handling escape characters for now
-        char end_char = this->state() == LEXER_STATE_CHAR ? '\'' : '"';
+        int end_char = this->state() == LEXER_STATE_CHAR ? '\'' : '"';
         while (true) {
-            if (pos_ > 10000)
-                throw std::exception("too long file: 10000 bytes (defined in lexer.cpp:250)");
-            const char ch_str = next_char();
-            printf("Next_char() was: %d\n", ch_str);
+            const int ch_str = next_char();
+            // salt::dbout << salt::f_string("Next_char() was: %d\n", ch_str);
 
             // Move the lexer's position forward.
             this->pos_++;
@@ -335,8 +412,9 @@ Result<Token> Lexer::next_token() {
                 lexer_col = 1;
                 lexer_line++;
             }
-
-            if (ch_str == EOF || ch_str == end_char) {
+            if (ch_str == EOF)
+                salt::print_fatal("string literal terminated with EOF");
+            if (ch_str == end_char) {
                 std::string string_to_return = cur_str;
                 cur_str.clear();
                 Token_e token_val = this->state() == LEXER_STATE_CHAR ? TOK_CHAR : TOK_STRING;
@@ -353,7 +431,7 @@ Result<Token> Lexer::next_token() {
     }
 }
 
-std::vector<Token> Lexer::tokenize(const char* str) {
+std::vector<Token>& Lexer::tokenize(const char* str) {
 
     Lexer* lexer = this;
     Lexer* me = Lexer::get();
@@ -363,7 +441,7 @@ std::vector<Token> Lexer::tokenize(const char* str) {
         salt::print_fatal(salt::f_string("Wrong address for lexer.\nThis: %p\n Lexer::get(): %p", this, me).c_str());
     }
     
-    std::vector<Token> vec;
+    vec.clear();
 
     if (lexer->current_string.size() > 0)
         std::cerr << "warning: lexer still has string data left before tokenize: "
@@ -392,6 +470,7 @@ std::vector<Token> Lexer::tokenize(const char* str) {
     while (true) {
         if (Result<Token> next_res = lexer->next_token()) {
             const Token next = next_res.unwrap();
+            // salt::dboutv << next << ' ';
             Token& last = (vec.empty() ? NO_TOKEN : vec[vec.size() - 1]);
 
 
@@ -411,7 +490,7 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                 if (last.val() == TOK_WHITESPACE) {
                     int wc = last.count();
 
-                    if (wc > 3) {
+                    if (wc > 2) {
                         last = Token(TOK_TAB);
 
                         #ifndef NDEBUG
@@ -421,9 +500,9 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                         #endif
                     }
 
-                    if (wc == 3)
+                    if (wc == 2)
                         last = Token(TOK_TAB);
-                    else if (wc < 3)
+                    else if (wc < 2)
                         last = Token(TOK_WHITESPACE, "", wc + 1);
                 } else {
                     vec.push_back(next);
@@ -473,8 +552,10 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                     last = Token(TOK_COMMENT_START);
                     break;
                 case TOK_TYPE:
-                    last = Token(TOK_PTR, last.data());
+                    last = Token(TOK_TYPE, last.data(), last.count() + 1);
                     break;
+
+                // TOK_PTR deprecated!
                 case TOK_PTR:
                     last = Token(TOK_PTR, last.data(), last.count() + 1);
                     break;
@@ -575,7 +656,69 @@ std::vector<Token> Lexer::tokenize(const char* str) {
                 }
                 break;
 
+            /// @todo: remove TOK_<THISTYPE>, change all to TOK_TYPE in end_token()
+            case TOK_CHAR_TYPE:
+                if (last_non_whitespace().val() == TOK_UNSIGNED)
+                    last_non_whitespace() = Token(TOK_TYPE, "uchar", 0, next.line(), next.col());
+                else
+                    vec.push_back(Token(TOK_TYPE, "char", 0, next.line(), next.col()));
+                break;
 
+            case TOK_SHORT:
+                if (last_non_whitespace().val() == TOK_UNSIGNED)
+                    last_non_whitespace() = Token(TOK_TYPE, "ushort", 0, next.line(), next.col());
+                else
+                    vec.push_back(Token(TOK_TYPE, "short", 0, next.line(), next.col()));
+                break;
+
+            case TOK_INT:
+                if (last_non_whitespace().val() == TOK_UNSIGNED)
+                    last_non_whitespace() = Token(TOK_TYPE, "uint", 0, next.line(), next.col());
+                else
+                    vec.push_back(Token(TOK_TYPE, "int", 0, next.line(), next.col()));
+                break;
+
+            case TOK_LONG:
+                if (last_non_whitespace().val() == TOK_UNSIGNED)
+                    last_non_whitespace() = Token(TOK_TYPE, "ulong", 0, next.line(), next.col());
+                else
+                    vec.push_back(Token(TOK_TYPE, "long", 0, next.line(), next.col()));
+                break;
+
+            case TOK_SSIZE:
+                vec.push_back(Token(TOK_TYPE, "ssize", 0, next.line(), next.col()));
+                break;
+
+            case TOK_FLOAT:
+                vec.push_back(Token(TOK_TYPE, "float", 0, next.line(), next.col()));
+                break;
+
+            case TOK_DOUBLE:
+                vec.push_back(Token(TOK_TYPE, "double", 0, next.line(), next.col()));
+                break;
+
+            case TOK_VOID:
+                vec.push_back(Token(TOK_TYPE, "void", 0, next.line(), next.col()));
+                break;
+
+            case TOK_BOOL:
+                vec.push_back(Token(TOK_TYPE, "bool", 0, next.line(), next.col()));
+                break;
+
+            case TOK_NUMBER:
+                // salt::dboutv << "before the dot: " << vec[vec.size() - 2].str() << '\n';
+                if (vec.size() < 2 || (vec.size() > 0 && last.val() != TOK_DOT)) {
+                    vec.push_back(Token(next.val(), next.data(), 0, next.line(), next.col()));
+                } else {
+                    Token& before_the_dot = vec[vec.size() - 2];
+                    if (before_the_dot.val() == TOK_NUMBER && before_the_dot.count() == 0) {
+                        vec.pop_back();
+                        before_the_dot = Token(TOK_NUMBER, before_the_dot.data() + '.' + next.data(), 1, before_the_dot.line(), before_the_dot.col());
+                    } else {
+                        vec.push_back(next);
+                    }
+                }
+                break;
             default:
                 vec.push_back(next);
                 break;
@@ -604,7 +747,7 @@ std::vector<Token> Lexer::tokenize(const char* str) {
     return vec;
 }
 
-std::vector<Token> tokenize(const char* str) {
+std::vector<Token>& tokenize(const char* str) {
     Lexer* lexer = Lexer::get();
     return lexer->tokenize(str);
 }

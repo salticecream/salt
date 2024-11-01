@@ -1,12 +1,17 @@
 #include "irgenerator.h"
 #include <iostream>
 /*
-* Defines the IRGenerator class, which generates and optimizes LLVM IR. It also JITs this IR.
+* Defines the IRGenerator class, which generates and optimizes LLVM IR.
 * If you were looking for the IR generation code, go to ast.cpp
+* 
+* Due to reasons, the context is outside of the IRGenerator but should still be referred to using the IRGenerator
 */
 
 
 IRGenerator* IRGenerator::instance = nullptr;
+
+// GLOBAL variable, use IRGenerator->context instead
+std::unique_ptr<llvm::LLVMContext> global_context = std::make_unique<llvm::LLVMContext>();
 
 IRGenerator* IRGenerator::get() {
 	return instance ? instance : instance = new IRGenerator();
@@ -18,16 +23,13 @@ void IRGenerator::destroy() {
 	instance = nullptr;
 }
 
-IRGenerator::IRGenerator() {
-
-	// Initialize the JIT
-	// this->jit = std::make_unique<SaltJIT>();
+IRGenerator::IRGenerator() : context(global_context) {
 
 	// For code generation
-	this->context = std::make_unique<llvm::LLVMContext>();
 	this->builder = std::make_unique<llvm::IRBuilder<>>(*this->context);
 	this->mod = std::make_unique<llvm::Module>("salt", *this->context);
 	this->named_values = std::map<std::string, llvm::Value*>();
+	this->named_strings = {};
 
 
 	// For optimization and whatnot
@@ -52,9 +54,6 @@ IRGenerator::IRGenerator() {
 	pass_builder.registerFunctionAnalyses(*fn_analysis_mgr);
 	pass_builder.registerLoopAnalyses(*loop_analysis_mgr);
 	pass_builder.crossRegisterProxies(*loop_analysis_mgr, *fn_analysis_mgr, *cgscc_analysis_mgr, *module_analysis_mgr);
-
-	
-
 }
 
 IRGeneratorException::IRGeneratorException(int line, int col, const char* str) :

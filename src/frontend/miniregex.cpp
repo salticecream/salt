@@ -1,22 +1,14 @@
 #include "miniregex.h"
 #include "types.h"
+
 // Data
 const char ALLOWED_CHARS[] = 
 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"@#%&/()=[]<>+-*,.;:|_ \n\t\r'";
 const int ALLOWED_CHARS_LEN = sizeof(ALLOWED_CHARS) - 1;
 const int ALLOWED_SYMBOLS_START = 62;
-std::vector<Type> TYPES;
 
 
 // Functions
-
-// Add the default list of types to TYPES.
-void MiniRegex::fill_types() {
-    if (TYPES.empty())
-        for (const Type& t : DEFAULT_TYPES)
-            TYPES.push_back(t);
-}
-
 bool is_alphabetic (const char ch) {
     if (ch >= 'a' && ch <= 'z')
         return true;
@@ -68,6 +60,12 @@ bool is_allowed(const char ch) {
 bool is_integer(const char* s) {
     if (*s == '-')
         s++;
+
+    // handle octal, binary, hexadecimal integers too
+    if (*s == '0')
+        s++;
+    if (*s == 'b' || *s == 'B' || *s == 'x' || *s == 'X')
+        s++;
         
     while (*s) {
         if (!is_digit(*s))
@@ -78,21 +76,16 @@ bool is_integer(const char* s) {
 }
 
 bool is_type(const char* s) {
-    for (const Type& type : TYPES)
-        if (type.name() == s)
-            return true;
-    return false;
+
+    return salt::all_types.count(s);
 }
 
 bool is_type(const std::string& s) {
-    for (const Type& type : TYPES)
-        if (type.name() == s)
-            return true;
-    return false;
+    return salt::all_types.count(s);
 }
 
 bool is_pointer(const std::string& s) {
-    int length = s.size();
+    const size_t& length = s.size();
     if (length < 2)
         return false;
 
@@ -114,11 +107,16 @@ bool string_ends_with(const char* str, const char* end) {
     return (strcmp(str_substr, end) == 0);
 }
 
-bool string_starts_with(const char* str, const char* start) {;
-    for (int i = 0; start[i] != '\0'; i++) {
+bool string_starts_with(const char* str, const char* start) {
+    int i;
+    for (i = 0; start[i] != '\0' && str[i] != '\0'; i++) {
         if (str[i] != start[i])
             return false;
     }
+
+    // if str does not fully contain start, then return false
+    if (str[i] == '\0')
+        return start[i] == '\0';
 
     return true;
 }
