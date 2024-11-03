@@ -81,12 +81,22 @@ ValExprAST::ValExprAST(const Token& tok, std::string str, TypeInstance ti) {
     this->data_ = str;
 }
 
+int64_t ValExprAST::to_int() const {
+    return val_.i64;
+}
+
+double ValExprAST::to_double() const {
+    return val_.f64;
+}
+
 VariableExprAST::VariableExprAST(const Token& tok, TypeInstance ti) : name_(tok.data()) {
     this->col_ = tok.col();
     this->line_ = tok.line();
     this->ti_ = ti;
+    if (!ti_)
+        ti_ = SALT_TYPE_ERROR;
     if (tok.val() != TOK_IDENT)
-        print_fatal(f_string("Cannot create variable from token %s with data `%s`, expected identifier (TOK_IDENT)", tok.str().c_str(), tok.data()));
+        print_error(f_string("Cannot create variable from token %s with data `%s`, expected identifier (TOK_IDENT)", tok.str().c_str(), tok.data()));
 }
 
 const std::string& VariableExprAST::name() const {
@@ -103,7 +113,7 @@ BinaryExprAST::BinaryExprAST(const Token& tok, Expression lhs, Expression rhs) {
     
     // type promotion: the BinaryExpr will have the size of the largest of the types, if an implicit conversion is possible
     this->ti_.type = lhs_->type();
-    this->ti_.pointee = lhs_->type();
+    this->ti_.pointee = lhs_->pointee();
     if (ti_.type->rank <= 1) {
         this->ti_.type = SALT_TYPE_ERROR;
         this->ti_.pointee = nullptr;
@@ -120,6 +130,10 @@ BinaryExprAST::BinaryExprAST(const Token& tok, Expression lhs, Expression rhs) {
 
     if (this->ti_.type != SALT_TYPE_PTR)
         this->ti_.pointee = nullptr;
+
+    // BANDAID fix probably: if the token is "AS", then no matter what, this expression must be the same type as RHS
+    if (this->op_ == TOK_AS)
+        this->ti_ = rhs_->type_instance();
 
     salt::dboutv << f_string("Created new BinExprAST with %s x %s -> %s\n", lhs_->type()->name, rhs_->type()->name, this->ti_.type->name);
     
@@ -191,11 +205,13 @@ ReturnAST::ReturnAST(const Token& tok, Expression expr) : return_val(std::move(e
 
 
 
-std::unique_ptr<ReturnAST> ExprAST::to_return() { return std::unique_ptr<ReturnAST>(is_return() ? static_cast<ReturnAST*>(this) : nullptr); }
-std::unique_ptr<ValExprAST> ExprAST::to_val() { return std::unique_ptr<ValExprAST>(is_val() ? static_cast<ValExprAST*>(this) : nullptr); }
-std::unique_ptr<BinaryExprAST> ExprAST::to_binary() { return std::unique_ptr<BinaryExprAST>(is_binary() ? static_cast<BinaryExprAST*>(this) : nullptr); }
-std::unique_ptr<VariableExprAST> ExprAST::to_variable() { return std::unique_ptr<VariableExprAST>(is_variable() ? static_cast<VariableExprAST*>(this) : nullptr); }
-std::unique_ptr<TypeExprAST> ExprAST::to_type() { return std::unique_ptr<TypeExprAST>(is_variable() ? static_cast<TypeExprAST*>(this) : nullptr); }
+ReturnAST*          ExprAST::to_return()    { return is_return()    ? static_cast<ReturnAST*>(this)         : nullptr; }
+ValExprAST*         ExprAST::to_val()       { return is_val()       ? static_cast<ValExprAST*>(this)        : nullptr; }
+BinaryExprAST*      ExprAST::to_binary()    { return is_binary()    ? static_cast<BinaryExprAST*>(this)     : nullptr; }
+VariableExprAST*    ExprAST::to_variable()  { return is_variable()  ? static_cast<VariableExprAST*>(this)   : nullptr; }
+TypeExprAST*        ExprAST::to_type()      { return is_type()      ? static_cast<TypeExprAST*>(this)       : nullptr; }
+DerefExprAST*       ExprAST::to_deref()     { return is_deref()     ? static_cast<DerefExprAST*>(this)      : nullptr; }
+
 
 // For code generation to IR
 
@@ -288,6 +304,9 @@ TypeExprAST::TypeExprAST(const Token& tok) {
         tok.count()
     );
 
+    if (ti_.type == SALT_TYPE_PTR && !ptr_layers())
+        print_fatal("Skill issue on my part (invalid ptr type generated)");
+
     if (!ti_)
         ti_ = SALT_TYPE_ERROR;
 }
@@ -298,16 +317,30 @@ TypeExprAST::TypeExprAST(const TypeInstance& ti) {
     ti_ = ti;
 }
 
+DerefExprAST::DerefExprAST(Expression expr) : expr_(std::move(expr)) {
+    this->col_ = expr_->col();
+    this->line_ = expr_->line();
+    if (expr_->ptr_layers() >= 2) {
+        ti_ = expr_->type_instance();
+        ti_.ptr_layers--;
+    } else {
+        ti_ = expr_->pointee() ? expr_->pointee() : SALT_TYPE_VOID;
+    }
+
+    salt::dboutv << "Created new DerefExprAST, my type: `" << ti_.str() << "` , my expr's type: `" << expr_->type_instance().str() << "`\n";
+}
+
 Value* BinaryExprAST::code_gen() {
 
     IRGenerator* gen = IRGenerator::get();
     Value* left_proto = lhs_->code_gen();
     if (!left_proto)
-        print_fatal("Bad LHS to BinaryExprAST::code_gen()");
+        return nullptr;
+        //print_fatal("Bad LHS to BinaryExprAST::code_gen()");
 
     Value* right_proto = rhs_->code_gen();
     if (!right_proto && !rhs_->is_type())
-        print_fatal("Bad RHS to BinaryExprAST::code_gen()");
+        return nullptr;
 
     const salt::Type* new_type = lhs_->type();
     if (new_type->rank < rhs_->type()->rank)
@@ -514,6 +547,11 @@ Value* BinaryExprAST::code_gen() {
         break;
 
     case TOK_DIV:
+        if (ValExprAST* divisor = rhs_->to_val()) {
+            if ((divisor->type()->is_integer() && divisor->to_int() == 0) || (divisor->type()->is_float() && divisor->to_double() == 0.0)) {
+                print_warning(f_string("%d:%d: division by zero", divisor->line(), divisor->col()));
+            }
+        }
         switch (bin_type) {
         case BIN_TYPE_INT:
             return gen->builder->CreateSDiv(left, right, "divtmp");
@@ -662,16 +700,92 @@ Value* BinaryExprAST::code_gen() {
             RET_POISON_WITH_ERROR_VAL(rhs_);
         salt::dboutv << "Attempting expl conversion!!\n";
         Value* cast_val = convert_explicit(left_proto, rhs_->type_instance().get(), rhs_->type()->is_signed);
-        if (cast_val)
+        salt::dboutv << "Expl conversion was possible!\n";
+
+        if (cast_val) {
+            if (dboutv.is_active()) {
+                dboutv << "Explicit cast success, value: ";
+                cast_val->print(llvm::outs());
+                dboutv << '\n';
+            }
             return cast_val;
-        else
-            salt::dboutv << "Error: no cast_val!!\n";
+        }
+        
+
         RET_POISON_WITH_ERROR_VAL(rhs_);
     }
+
+    case TOK_ASSIGN: {
+        // handle when LHS is dereference
+        if (DerefExprAST* lhs_deref = lhs_->to_deref()) {
+            Value* lhs_ptr_code = lhs_deref->expr()->code_gen();
+            Value* rhs_code = rhs_->code_gen();
+
+            if (!lhs_ptr_code || !lhs_ptr_code->getType()->isPointerTy()) {
+                print_error(f_string("%d:%d: type `%s` cannot be dereferenced", lhs_->line(), lhs_->col(), lhs_->type_instance().str().c_str()));
+                return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
+            }
+
+            if (!rhs_code) {
+                print_error(f_string("%d:%d: invalid rhs for assignment", rhs_->line(), rhs_->col()));
+                return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
+            }
+
+            Value* converted_rhs = convert_implicit(rhs_code, lhs_deref->type()->get(), lhs_deref->type()->is_signed);
+
+            if (!converted_rhs) {
+                print_error(f_string("%d:%d: wrong type for rhs", rhs_->line(), rhs_->col()));
+                return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
+            }
+
+            gen->builder->CreateStore(converted_rhs, lhs_ptr_code);
+            return converted_rhs;
+        }
+
+        salt::dberrv << "Should've dereferenced deref, but now instead we're dealing with a " << lhs_->ast_type() << '\n';
+        TODO();
+        
+        // all of this is wrong, you need to use DerefExprAST here somehow...
+        if (VariableExprAST* lhs_variable = lhs_->to_variable()) {
+            TODO();
+            Value* lhs_code = lhs_->code_gen();
+            Value* rhs_code = rhs_->code_gen();
+
+            if (!lhs_code || !lhs_code->getType()->isPointerTy()) {
+                print_error(f_string("%d:%d: type `%s` cannot be dereferenced", lhs_->line(), lhs_->col(), lhs_->type_instance().str().c_str()));
+                return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
+            }
+
+            if (!rhs_code) {
+                print_error(f_string("%d:%d: invalid rhs for assignment", rhs_->line(), rhs_->col()));
+                return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
+            }
+
+            Value* converted_rhs = convert_implicit(rhs_code, lhs_variable->type()->get(), lhs_variable->type()->is_signed);
+            
+            if (!converted_rhs) {
+                print_error(f_string("%d:%d: wrong type for rhs", rhs_->line(), rhs_->col()));
+                return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
+            }
+
+            /// @todo: This always crashes, replace nullptr with the correct value
+            gen->builder->CreateStore(converted_rhs, nullptr);
+        }
+
+    }
+    break;
 
     default:
         print_fatal("Found bad token " + Token(op_).str() + "in BinaryExprAST::code_gen()");
     }
+}
+
+Value* DerefExprAST::code_gen() {
+    IRGenerator* gen = IRGenerator::get();
+    if (type() != SALT_TYPE_VOID)
+        return gen->builder->CreateLoad(const_cast<llvm::Type*>(this->type()->get()), this->expr_->code_gen(), "dereftmp");
+    print_error(f_string("%d:%d: cannot dereference void*, please cast to a different pointer type using the \"as\" keyword", this->line(), this->col()));
+    return nullptr;
 }
 
 Value* CallExprAST::code_gen() {
@@ -872,10 +986,20 @@ Function* FunctionAST::code_gen() {
 
     if (Expression& ret_expr = this->body().back()) {
         Value* res = ret_expr->code_gen();
-        const llvm::Type* expected_type = this->decl()->type()->get();
-        const llvm::Type* actual_type = res->getType();
         const TypeInstance& expected_salt_type = this->decl()->type_instance();
         const TypeInstance& actual_salt_type = ret_expr->type_instance();
+        
+        const llvm::Type* expected_type = this->decl()->type()->get();
+        const llvm::Type* actual_type = nullptr;
+
+        // assert that the salt types map correctly to the LLVM ones!
+        ASSERT(expected_salt_type.type->get() == expected_type);
+
+        if (!res)
+            res = llvm::PoisonValue::get(const_cast<llvm::Type*>(SALT_TYPE_VOID->get()));
+        
+        actual_type = res->getType();
+
         bool should_return_void = expected_type == SALT_TYPE_VOID->get();
         
         if (expected_type != actual_type || expected_salt_type != actual_salt_type) {
@@ -973,6 +1097,10 @@ llvm::Value* RepeatAST::code_gen() {
 /// @todo: make bool -> int conversion explicit
 /// while keeping int -> bool implicit
 Value* salt::convert_implicit(llvm::Value* value, const llvm::Type* _type, bool is_signed) {
+
+    if (!value)
+        return nullptr;
+
     llvm::Type* current_type = const_cast<llvm::Type*>(value->getType());
     IRGenerator* gen = IRGenerator::get();
     llvm::Type* type = const_cast<llvm::Type*>(_type);
@@ -1064,6 +1192,10 @@ Value* salt::convert_implicit(llvm::Value* value, const llvm::Type* _type, bool 
 }
 
 llvm::Value* salt::convert_explicit(llvm::Value* val, const llvm::Type* _type, bool is_signed) {
+
+    if (!val)
+        return nullptr;
+
     IRGenerator* gen = IRGenerator::get();
     llvm::Type* type = const_cast<llvm::Type*>(_type);
 

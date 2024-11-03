@@ -61,6 +61,8 @@ int Parser::next() {
     return current_idx - cur_pos;
 }
 
+const Token& Parser::current() const { return vec[current_idx]; }
+
 Result<Expression> Parser::parse_number_expr() {
     bool negative = false;
 
@@ -176,7 +178,7 @@ Result<Expression> Parser::parse_ident_expr() {
         if (!ti)
             return Exception(f_string("variable %s does not exist", ident_name.c_str()));
 
-        salt::dboutv << f_string("Making variable with name %s\n", vec[ident_idx].data());
+        salt::dboutv << f_string("Making variable with name %s and type `%s`\n", vec[ident_idx].data(), named_values[ident_name].str());
         return std::make_unique<VariableExprAST>(vec[ident_idx], ti);
     }
     
@@ -273,6 +275,8 @@ Result<Expression> Parser::parse_primary() {
     case TOK_TRUE:
     case TOK_FALSE:
         return parse_reserved_constant();
+    case TOK_MUL:
+        return parse_deref();
     default:
         return ParserException(vec[current_idx],
             "expected primary expression (that is, a literal, a function call, an identifier, \"if\" or \"repeat\" keywords, or \"(\")");
@@ -494,10 +498,36 @@ Result<std::unique_ptr<DeclarationAST>> Parser::parse_declaration() {
     }   
 
     if (named_functions[function_name])
-        return Exception (f_string("%d:%d: function %s already exists",function_identifier_token.line(), function_identifier_token.col(), function_name.c_str()).c_str());
+        return Exception (f_string("%d:%d: function %s already exists", function_identifier_token.line(), function_identifier_token.col(), function_name.c_str()).c_str());
+    
     named_functions[function_name] = return_type;
     return std::make_unique<DeclarationAST>(function_identifier_token, std::move(args), return_type);
 
+}
+
+Result<Expression> Parser::parse_return() {
+    int cur = this->current_idx;
+
+    if (current().val() != TOK_RETURN)
+        return ParserException(current(), "expected return keyword");
+
+    Result<Expression> res = parse_expression();
+    if (res)
+        return std::make_unique<ReturnAST>(vec[cur], std::move(res.unwrap()));
+    else
+        return res.unwrap_err();
+}
+
+Result<Expression> Parser::parse_deref() {
+    if (current().val() != TOK_MUL)
+        return ParserException(current(), "expected '*'");
+
+    this->next();
+    Result<Expression> ptr = parse_primary(); // parse primary since '*' is an unary operator. so it must bind more tightly than any binary operator
+    if (ptr)
+        return std::make_unique<DerefExprAST>(ptr.unwrap());
+    else
+        return ptr.unwrap_err();
 }
 
 Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
@@ -513,6 +543,7 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
         return ParserException(vec[current_idx], "expected \":\" after non-extern function declaration");
     
     int token_delta = this->next(); // move fd from ':'. if the function creation fails then go back this many steps
+    // Try
     Result<Expression> body_res = parse_expression();
     
     // If parsing an expression for the body fails, then return the error contained inside
@@ -522,7 +553,6 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
     Expression body = body_res.unwrap();
     std::vector<Expression> ret_vec;
     ret_vec.push_back(std::move(body));
-    // static_assert("Here is the <memory> l3465 bug, it's trying to make a functionAST" == nullptr);
 
     // here we check if the function contains bad variables (like variables of type void)
     bool has_bad_args = false;

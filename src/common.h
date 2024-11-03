@@ -30,7 +30,9 @@ static_assert(EXIT_FAILURE == 1);
 extern bool any_compile_error_occured;
 
 
+
 namespace salt {
+    extern int WARNING_LEVEL;
     class TextColor; // defined below
 
     class Exception : public std::exception {
@@ -113,7 +115,7 @@ namespace salt {
     };
 
     void print_colored(const std::string& str, const TextColor tc);
-    void print_warning(const std::string& warning);
+    void print_warning(const std::string& warning, int min_warning_level = 0);
     void print_error(const std::string& error);
 
     [[noreturn]]

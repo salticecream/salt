@@ -61,11 +61,19 @@ bool is_integer(const char* s) {
     if (*s == '-')
         s++;
 
+    bool starts_with_zero = false;
+
     // handle octal, binary, hexadecimal integers too
-    if (*s == '0')
+    if (*s == '0') {
         s++;
-    if (*s == 'b' || *s == 'B' || *s == 'x' || *s == 'X')
+        starts_with_zero = true;
+    }
+
+    if (*s == 'b' || *s == 'B' || *s == 'x' || *s == 'X') {
+        if (!starts_with_zero)
+            return false;
         s++;
+    }
         
     while (*s) {
         if (!is_digit(*s))

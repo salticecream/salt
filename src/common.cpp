@@ -3,6 +3,7 @@
 #include <cstdarg>
 #include "frontend/miniregex.h"
 
+int salt::WARNING_LEVEL = 255;
 using namespace salt;
 
 // Global variables
@@ -136,7 +137,10 @@ void salt::print_colored(const std::string& str, const TextColor tc) {
 	std::cout << tc << str << Color::WHITE;
 }
 
-void salt::print_warning(const std::string& str) {
+void salt::print_warning(const std::string& str, int min_warning_level) {
+	if (min_warning_level > salt::WARNING_LEVEL)
+		return;
+
 	print_colored("warning: ", Color::YELLOW);
 	std::cout << str << std::endl;
 }

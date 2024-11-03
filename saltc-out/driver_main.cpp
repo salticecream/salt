@@ -1,4 +1,6 @@
 #include <cstdlib>
+#include <Windows.h>
+#include <cstdio>
 
 typedef unsigned long long uint64_t;
 
@@ -9,6 +11,26 @@ extern "C" {
     int printf(const char *_Format, ...);
     int test_null_ptr(int* p);
     bool crasher(int* p);
+}
+
+LONG WINAPI signal_handler(EXCEPTION_POINTERS* exception_info) {
+    char print_buf[512] = {};
+	switch (exception_info->ExceptionRecord->ExceptionCode) {
+	case EXCEPTION_ACCESS_VIOLATION:
+		snprintf(print_buf, 511, "access violation at address %p", exception_info->ExceptionRecord->ExceptionInformation[1]);
+		break;
+	default:
+		snprintf(print_buf, 511, "unknown unhandled Windows exception");
+		break;
+	}
+	puts(print_buf);
+    std::exit(exception_info->ExceptionRecord->ExceptionCode);
+    return 0;
+}
+
+extern "C" int register_signal_handlers() {
+    SetUnhandledExceptionFilter(&signal_handler);
+    return 0;
 }
 
 /*

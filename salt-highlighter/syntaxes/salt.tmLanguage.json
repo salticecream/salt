@@ -19,6 +19,12 @@
 		},
 		{
 			"include": "#function-call"
+		},
+		{
+			"include": "#line-comment"
+		},
+		{
+			"include": "#bad-words"
 		}
 	],
 	"repository": {
@@ -59,17 +65,37 @@
 		"function-definition": {
             "match": "\\bfn\\s+(\\w+)\\s*\\(.*?\\)\\s*->\\s*(\\w+)\\s*:",
             "captures": {
-                "1": { "name": "entity.name.function.mylanguage" }
+                "1": { "name": "entity.name.function.salt" }
             },
             "name": "entity.name.function.salt"
         },
 		"function-call": {
             "match": "\\b(\\w+)\\s*\\(",
             "captures": {
-                "1": { "name": "entity.name.function.mylanguage" }
+                "1": { "name": "entity.name.function.salt" }
             },
             "name": "entity.name.function.salt"
-        }
+        },
+
+		"line-comment": {
+			"name": "comment.line.number-sign.salt",
+			"begin": "#",
+			"end": "$",
+			"patterns": [
+				{
+					"name": "comment.line.number-sign.salt",
+					"match": "#.*"
+				}
+			]
+		},
+
+		"bad-words": {
+			"patterns": [{
+				"name": "invalid.illegal.salt",
+				"match": "\\b(__Pointer)\\b"
+			}]
+		}
+
 	},
 	"scopeName": "source.sl"
 }

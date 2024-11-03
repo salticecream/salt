@@ -2,24 +2,24 @@
 #include "frontendllvm.h"
 #include <vector>
 
-#define SALT_TYPE_UNKNOWN	(salt::all_types["__SaltUnknownTy"])	// The type is to be resolved later; implicitly convert into the correct type
-#define SALT_TYPE_ERROR		(salt::all_types["__SaltErrorTy"])	// The type is incorrect; return an Exception or crash
-#define SALT_TYPE_NEVER		(salt::all_types["__SaltNeverTy"])	// The expression or function does not return at all
-#define SALT_TYPE_VOID		(salt::all_types["void"])		// The expression or function returns nothing
-#define SALT_TYPE_BOOL		(salt::all_types["bool"])		// i1
-#define SALT_TYPE_CHAR		(salt::all_types["char"])		// i8
-#define SALT_TYPE_UCHAR		(salt::all_types["uchar"])		// u8
-#define SALT_TYPE_SHORT		(salt::all_types["short"])		// i16
-#define SALT_TYPE_USHORT	(salt::all_types["ushort"])		// u16
-#define SALT_TYPE_INT		(salt::all_types["int"])		// i32
-#define SALT_TYPE_UINT		(salt::all_types["uint"])		// u32
-#define SALT_TYPE_LONG		(salt::all_types["long"])		// i64
-#define SALT_TYPE_ULONG		(salt::all_types["ulong"])		// u64
-#define SALT_TYPE_SSIZE		(salt::all_types["ssize"])		// a signed integer with the same size as the word size of the target; usually i64
-#define SALT_TYPE_USIZE		(salt::all_types["usize"])		// an unsigned integer with the same size as the word size of the target; usually u64
-#define SALT_TYPE_FLOAT		(salt::all_types["float"])		// f32
-#define SALT_TYPE_DOUBLE	(salt::all_types["double"])		// f64
-#define SALT_TYPE_PTR		(salt::all_types["__SaltPtr"])	// *
+#define SALT_TYPE_UNKNOWN	(salt::all_types["__UnknownTy"])	// The type is to be resolved later; implicitly convert into the correct type
+#define SALT_TYPE_ERROR		(salt::all_types["__ErrorTy"])		// The type is incorrect; return an Exception or crash
+#define SALT_TYPE_NEVER		(salt::all_types["__NeverTy"])		// The expression or function does not return at all
+#define SALT_TYPE_VOID		(salt::all_types["void"])			// The expression or function returns nothing
+#define SALT_TYPE_BOOL		(salt::all_types["bool"])			// i1
+#define SALT_TYPE_CHAR		(salt::all_types["char"])			// i8
+#define SALT_TYPE_UCHAR		(salt::all_types["uchar"])			// u8
+#define SALT_TYPE_SHORT		(salt::all_types["short"])			// i16
+#define SALT_TYPE_USHORT	(salt::all_types["ushort"])			// u16
+#define SALT_TYPE_INT		(salt::all_types["int"])			// i32
+#define SALT_TYPE_UINT		(salt::all_types["uint"])			// u32
+#define SALT_TYPE_LONG		(salt::all_types["long"])			// i64
+#define SALT_TYPE_ULONG		(salt::all_types["ulong"])			// u64
+#define SALT_TYPE_SSIZE		(salt::all_types["ssize"])			// a signed integer with the same size as the word size of the target; usually i64
+#define SALT_TYPE_USIZE		(salt::all_types["usize"])			// an unsigned integer with the same size as the word size of the target; usually u64
+#define SALT_TYPE_FLOAT		(salt::all_types["float"])			// f32
+#define SALT_TYPE_DOUBLE	(salt::all_types["double"])			// f64
+#define SALT_TYPE_PTR		(salt::all_types["__Pointer"])		// *
 
 namespace salt { 
 	class Type {
@@ -27,6 +27,9 @@ namespace salt {
 		const llvm::Type* type;
 	public:
 		const llvm::Type* get() const;
+		bool is_numeric() const;
+		bool is_integer() const;
+		bool is_float() const;
 		const std::string name;
 		const bool is_signed; // not relevant for void, bool, or float types
 		const int rank; // 0 for non-numeric, n where n is bits for integral types (bool is 1), plus 1 for unsigned

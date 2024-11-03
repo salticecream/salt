@@ -150,6 +150,8 @@ Token Lexer::end_token() {
                 return Token(TOK_MUL);
             case '/':
                 return Token(TOK_DIV);
+            case '%':
+                return Token(TOK_MODULO);
             case ' ':
                 return Token(TOK_WHITESPACE);
             case '\t':
@@ -180,6 +182,9 @@ Token Lexer::end_token() {
                 return Token(TOK_COMMA);
             case '.':
                 return Token(TOK_DOT);
+            case '#':
+                this->state_ = LEXER_STATE_LINE_COMMENT;
+                return TOK_NONE;
 
 
             default:
@@ -242,6 +247,10 @@ Token Lexer::end_token() {
     } else if (string_res == "repeat") {
         lexer->current_string = cur_str.back();
         return Token(TOK_REPEAT);
+
+    } else if (string_res == "return") {
+        lexer->current_string = cur_str.back();
+        return Token(TOK_RETURN);
 
     // Default types
     } else if (string_res == "void") {
@@ -426,6 +435,28 @@ Result<Token> Lexer::next_token() {
         }
         break; // Not necessary because of while (true) loop above, but compiler is not smart enough to know this
     }
+    case LEXER_STATE_LINE_COMMENT: {
+        while (1) {
+            switch (this->next_char()) {
+            case EOF:
+            case '\n':
+                this->state_ = LEXER_STATE_NORMAL;
+                this->line_++;
+                this->col_ = 1;
+                this->pos_++;
+                lexer_col = col_;
+                lexer_line = line_;
+                return TOK_NONE;
+            default:
+                this->col_++;
+                this->pos_++;
+                lexer_col = col_;
+                break;
+            }
+        }
+    }
+        break;
+
     default:
         return Token(TOK_ERROR, cur_str);
     }
@@ -534,7 +565,9 @@ std::vector<Token>& Lexer::tokenize(const char* str) {
             case TOK_DIV:
                 switch (last.val()) {
                 case TOK_DIV:
-                    last = Token(TOK_LINE_COMMENT);
+                    vec.pop_back(); // remove this div symbol and just set LexerState to line comment
+                    salt::print_warning(salt::f_string("%d:%d: please use # for line comments instead of //", last.line(), last.col()));
+                    this->state_ = LEXER_STATE_LINE_COMMENT;
                     break;
                 case TOK_MUL:
                     last = Token(TOK_COMMENT_END);
@@ -622,6 +655,9 @@ std::vector<Token>& Lexer::tokenize(const char* str) {
                     break;
                 case TOK_DIV:
                     last = Token(TOK_DIV_ASSIGN);
+                    break;
+                case TOK_MODULO:
+                    last = Token(TOK_MODULO_ASSIGN);
                     break;
                 case TOK_EXCLAMATION:
                     last = Token(TOK_NOT_EQUALS);

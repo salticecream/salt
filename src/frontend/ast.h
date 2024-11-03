@@ -52,11 +52,12 @@ public:
     virtual bool is_deref() const               { return false; }
     virtual bool is_call() const                { return false; }
     virtual bool is_if() const                  { return false; }
-    std::unique_ptr<ReturnAST> to_return();         // convert this to return expr if possible
-    std::unique_ptr<ValExprAST> to_val();           // convert this to val expr if possible
-    std::unique_ptr<VariableExprAST> to_variable(); // convert this to variable expr if possible
-    std::unique_ptr<BinaryExprAST> to_binary();     // convert this to binary expr if possible
-    std::unique_ptr<TypeExprAST> to_type();         // convert this to type expr if possible
+    ReturnAST* to_return();         // convert this to return expr if possible
+    ValExprAST* to_val();           // convert this to val expr if possible
+    VariableExprAST* to_variable(); // convert this to variable expr if possible
+    BinaryExprAST* to_binary();     // convert this to binary expr if possible
+    TypeExprAST* to_type();         // convert this to type expr if possible
+    DerefExprAST* to_deref();
     std::string ast_type() const;
 };
 typedef std::unique_ptr<ExprAST> Expression;
@@ -64,7 +65,7 @@ typedef std::unique_ptr<ExprAST> Expression;
 
 // Value node for literals
 class ValExprAST : public ExprAST {
-private:
+protected:
     union {
         int64_t i64;
         double f64;
@@ -79,11 +80,13 @@ public:
     virtual llvm::Value* code_gen() override;
     virtual bool is_val() const override { return true; }
     std::string& data() { return data_; }
+    int64_t to_int() const;
+    double to_double() const;
 };
 
 // Variable name node
 class VariableExprAST : public ExprAST {
-private:
+protected:
     const std::string name_;
 
 public:
@@ -95,7 +98,7 @@ public:
 
 // A binary expression, like a + b.
 class BinaryExprAST : public ExprAST {
-private:
+protected:
     Token_e op_;
     Expression lhs_;
     Expression rhs_;
@@ -110,7 +113,7 @@ public:
 
 // An expression that represents a called function.
 class CallExprAST : public ExprAST {
-private:
+protected:
     std::string callee_;
     std::vector<Expression> args_;
 public:
@@ -134,7 +137,7 @@ public:
 };
 
 class RepeatAST : public ExprAST {
-private:
+protected:
     int line_;
     int col_;
     Expression loop_until_expr_;
@@ -156,6 +159,16 @@ public:
     virtual llvm::Value* code_gen() override;
     TypeExprAST(const TypeInstance& ti);
     TypeExprAST(const Token& tok);
+};
+
+class DerefExprAST : public ExprAST {
+protected:
+    Expression expr_;
+public:
+    virtual bool is_deref() const override { return true; }
+    virtual llvm::Value* code_gen() override;
+    Expression& expr() { return expr_; }
+    DerefExprAST(Expression expr);
 };
 
 class DeclarationAST {

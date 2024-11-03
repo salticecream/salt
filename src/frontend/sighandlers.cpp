@@ -7,7 +7,7 @@ Windows::LONG WINAPI exception_handler(Windows::EXCEPTION_POINTERS* exception_in
 	char print_buf[512] = {};
 	switch (exception_info->ExceptionRecord->ExceptionCode) {
 	case EXCEPTION_ACCESS_VIOLATION:
-		snprintf(print_buf, 511, "access violation at address %p", exception_info->ExceptionRecord->ExceptionInformation[1]);
+		snprintf(print_buf, 511, "access violation at address 0x%p", exception_info->ExceptionRecord->ExceptionInformation[1]);
 		break;
 	default:
 		snprintf(print_buf, 511, "unknown unhandled Windows exception");

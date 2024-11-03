@@ -15,6 +15,7 @@ private:
     int current_idx;
     static Parser* instance; // Singleton just like Lexer.
     const std::vector<Token>& vec;
+    const Token& current() const;
     /// @todo:
     // there should be a vector of scopes, scopes[0] will be named_values in global scope, scopes[1] will be named_values in scope 1 etc, and current scope will be scopes.back()
 
@@ -36,6 +37,8 @@ private:
     salt::Result<Expression> parse_if_expr();
     salt::Result<Expression> parse_repeat_expr();
     salt::Result<Expression> parse_reserved_constant();
+    salt::Result<Expression> parse_return();
+    salt::Result<Expression> parse_deref();
     salt::Result<std::unique_ptr<DeclarationAST>> parse_declaration();
     salt::Result<std::unique_ptr<FunctionAST>> parse_function();
     salt::Result<std::unique_ptr<DeclarationAST>> parse_extern();
