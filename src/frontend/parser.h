@@ -57,9 +57,6 @@ private:
     salt::Result<void> handle_top_level_expr();
     salt::Result<void> handle_if_expr();
 
-//    const Token& current();
-//    const Token& current_no_whitespace();
-
 
 public:
     static Parser* get();

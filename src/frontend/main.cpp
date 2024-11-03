@@ -76,6 +76,7 @@ static void set_flags(const std::vector<CompilerFlag>& flags) {
         case f::DEBUG_OUTPUT_VERBOSE:
             salt::dboutv.activate();
             salt::dberrv.activate();
+        // intentional fallthrough
         case f::DEBUG_OUTPUT:
             salt::dbout.activate();
             salt::dberr.activate();

@@ -277,6 +277,8 @@ Result<Expression> Parser::parse_primary() {
         return parse_reserved_constant();
     case TOK_MUL:
         return parse_deref();
+    case TOK_RETURN:
+        return parse_return();
     default:
         return ParserException(vec[current_idx],
             "expected primary expression (that is, a literal, a function call, an identifier, \"if\" or \"repeat\" keywords, or \"(\")");
@@ -510,6 +512,8 @@ Result<Expression> Parser::parse_return() {
 
     if (current().val() != TOK_RETURN)
         return ParserException(current(), "expected return keyword");
+
+    this->next();
 
     Result<Expression> res = parse_expression();
     if (res)

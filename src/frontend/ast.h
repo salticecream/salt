@@ -209,6 +209,7 @@ public:
 class ReturnAST : public ExprAST {
 public:
     Expression return_val;
+    TypeInstance expected_return_type;
     ReturnAST(const Token& tok, Expression expr);
     virtual bool is_return() const override { return true; }
     llvm::Value* code_gen() override;

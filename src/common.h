@@ -241,6 +241,8 @@ namespace salt {
         }
 
         Result(Result_e res) : fail_("Unknown exception in Result<void>") {
+            if (res != Result_e::OK)
+                print_fatal("Invalid initialization of Result<void>");
             is_ok_ = true;
         }
 

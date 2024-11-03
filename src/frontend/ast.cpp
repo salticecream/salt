@@ -201,6 +201,7 @@ ReturnAST::ReturnAST(const Token& tok, Expression expr) : return_val(std::move(e
     this->line_ = tok.line();
     this->col_ = tok.col();
     this->ti_ = SALT_TYPE_VOID;
+    this->expected_return_type = nullptr;
 }
 
 
@@ -921,12 +922,67 @@ Value* IfExprAST::code_gen() {
 
 }
 
-Value* ReturnAST::code_gen() { 
+Value* ReturnAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
     if (return_val->type() == SALT_TYPE_VOID)
         return gen->builder->CreateRetVoid();
-    else
-        return gen->builder->CreateRet(return_val->code_gen());
+
+    if (Expression& ret_expr = this->return_val) {
+        Value* res = ret_expr->code_gen();
+        TypeInstance& expected_salt_type = this->expected_return_type;
+        TypeInstance& actual_salt_type = ret_expr->type_instance();
+
+        const llvm::Type* expected_type = expected_salt_type.get();
+        const llvm::Type* actual_type = nullptr;
+
+        // assert that the salt types map correctly to the LLVM ones!
+        ASSERT(expected_salt_type.type->get() == expected_type);
+
+        if (!res)
+            res = llvm::PoisonValue::get(const_cast<llvm::Type*>(SALT_TYPE_VOID->get()));
+
+        actual_type = res->getType();
+
+        bool should_return_void = expected_type == SALT_TYPE_VOID->get();
+
+        if (expected_type != actual_type || expected_salt_type != actual_salt_type) {
+            Value* attempted_conversion = convert_implicit(res, expected_type, actual_salt_type.type->is_signed);
+            // We can convert pointers to bool for example, but we cant convert a void* to an int*, or an int* to an int**
+            // however we can convert any ptr to a void
+            // remember that if both inp types are fully equal, we wouldnt need to check this
+            if (attempted_conversion != nullptr &&
+                (expected_salt_type.ptr_layers == 0                                                                 // if the expected type is not a pointer, but a ptr is convertible to it, then OK
+                    || actual_salt_type.ptr_layers == 0                                                             // if the expected type is a pointer, but a non-ptr is convertible to it, then OK
+                    || (expected_salt_type.ptr_layers == 1 && expected_salt_type.pointee == SALT_TYPE_VOID))) {     // if the expected type is a void-ptr, then any ptr is convertible to it, then OK
+                res = attempted_conversion;
+            }
+            else {
+                print_error(f_string("returning %s when %s was expected",
+                    actual_salt_type.str().c_str(),
+                    expected_salt_type.str().c_str()));
+                if (!expected_type || expected_type == llvm::Type::getVoidTy(*gen->context)) {
+                    // Do nothing
+                }
+                else {
+                    res = llvm::PoisonValue::get(const_cast<llvm::Type*>(expected_return_type.get()));
+                }
+            }
+        }
+
+        // Create a return if res is not of void type.
+        // If res is of the wrong type, this will be a poison value
+        if (!should_return_void)
+            gen->builder->CreateRet(res);
+        else
+            gen->builder->CreateRetVoid();
+
+        salt::dbout << "created return" << std::endl;
+
+
+        return nullptr;
+    }
+
+    return nullptr;
 }
 
 Function* DeclarationAST::code_gen() {
@@ -984,68 +1040,61 @@ Function* FunctionAST::code_gen() {
 
     salt::dbout << "created declaration" << std::endl;
 
-    if (Expression& ret_expr = this->body().back()) {
-        Value* res = ret_expr->code_gen();
-        const TypeInstance& expected_salt_type = this->decl()->type_instance();
-        const TypeInstance& actual_salt_type = ret_expr->type_instance();
-        
-        const llvm::Type* expected_type = this->decl()->type()->get();
-        const llvm::Type* actual_type = nullptr;
+    TypeInstance& expected_salt_type = this->decl()->type_instance();
+    const llvm::Type* expected_type = this->decl()->type()->get();
 
-        // assert that the salt types map correctly to the LLVM ones!
-        ASSERT(expected_salt_type.type->get() == expected_type);
+    // Generate code for all expressions and statements inside this function
+    for (int i = 0; i < this->body().size(); i++) {
+        Expression& current_expr = body()[i];
+        if (ReturnAST* return_expr = current_expr->to_return())
+            return_expr->expected_return_type = expected_salt_type;
+        current_expr->code_gen();
+    }
 
-        if (!res)
-            res = llvm::PoisonValue::get(const_cast<llvm::Type*>(SALT_TYPE_VOID->get()));
-        
-        actual_type = res->getType();
 
-        bool should_return_void = expected_type == SALT_TYPE_VOID->get();
-        
-        if (expected_type != actual_type || expected_salt_type != actual_salt_type) {
-            Value* attempted_conversion = convert_implicit(res, expected_type, this->decl()->type()->is_signed);
-            // We can convert pointers to bool for example, but we cant convert a void* to an int*, or an int* to an int**
-            // however we can convert any ptr to a void
-            // remember that if both inp types are fully equal, we wouldnt need to check this
-            if (attempted_conversion != nullptr && 
-                (expected_salt_type.ptr_layers == 0                                                                 // if the expected type is not a pointer, but a ptr is convertible to it, then OK
-                    || actual_salt_type.ptr_layers == 0                                                             // if the expected type is a pointer, but a non-ptr is convertible to it, then OK
-                    || (expected_salt_type.ptr_layers == 1 && expected_salt_type.pointee == SALT_TYPE_VOID))) {     // if the expected type is a void-ptr, then any ptr is convertible to it, then OK
-                res = attempted_conversion;
-            } 
-            else {
-                print_error(f_string("function `%s` returns %s when %s was expected",
-                    f->getName().str().c_str(),
-                    actual_salt_type.str().c_str(),
-                    expected_salt_type.str().c_str()));
-                if (!expected_type || expected_type == llvm::Type::getVoidTy(*gen->context)) {
-                        // Do nothing
-                }
-                else {
-                    res = llvm::PoisonValue::get(const_cast<llvm::Type*>(this->decl()->type()->get()));
-                }
+
+
+
+
+
+    if (this->body().size() != 0) {
+        Expression& last_expr = this->body().back();
+        ReturnAST* last_ret = last_expr->to_return();
+        // check if the function ends with a return, if not we kindly add a poison at the end and warn the user
+        if (!last_ret) {
+            if (expected_salt_type.get() == SALT_TYPE_VOID->get()) {
+                gen->builder->CreateRetVoid();
+            } else {
+                salt::dboutv << "Creating an extra poison return with type " << expected_salt_type.str() << '\n';
+                gen->builder->CreateRet(llvm::PoisonValue::get(expected_salt_type.get()));
+                print_warning(f_string("%d:%d: %s does not end with a return instruction", last_expr->line(), last_expr->col(), this->decl()->name()));
             }
         }
 
-        // Create a return if res is not of void type.
-        // If res is of the wrong type, this will be a poison value
-        if (!should_return_void)
-            gen->builder->CreateRet(res);
-        else
-            gen->builder->CreateRetVoid();
-
-        salt::dbout << "created return" << std::endl;
-
-        std::string error_result = "llvm error: ";
-        llvm::raw_string_ostream error_os = llvm::raw_string_ostream(error_result);
-        bool errors_found = verifyFunction(*f, &error_os);
-        error_os << '\n';
-
-        if (errors_found)
-            print_fatal(error_result);
     } else {
         salt::dbout << "function " << this->decl()->name() << " does not have body" << std::endl;
     }
+
+    std::string error_string;
+    llvm::raw_string_ostream error_stream = raw_string_ostream(error_string);
+    bool error = verifyFunction(*f, &error_stream);
+
+    std::string fn_string;
+    llvm::raw_string_ostream fn_stream = raw_string_ostream(fn_string);
+    
+    
+
+
+    if (error) {
+        if (dberr.is_active())
+            f->print(fn_stream);
+
+        print_fatal(f_string("llvm error: %s%s%s", 
+            error_string.c_str(),
+            !salt::dberr.is_active() ? "" : "\nin function:\n",
+            !salt::dberr.is_active() ? "" : fn_string.c_str()));
+    }
+
     salt::dbout << f_string("successfully created function %s\n", this->decl()->name().c_str());
     return f;
 }
