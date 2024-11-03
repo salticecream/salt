@@ -28,16 +28,38 @@ void Parser::destroy() {
 
 Parser::Parser(const std::vector<Token>& vec_ref) : vec(vec_ref), is_parsing_extern(false) {
     this->current_idx = 0;
+    this->current_scope = 0;
+    this->line_just_started = true;
 }
 
 // Helper functions for Parser::parse().
 void Parser::skip_whitespace() {
-    while (1) {
+    int spaces_in_a_row = 0;
+    bool looping = true;
+    while (looping) {
         Token_e val = vec[current_idx].val();
-        if (val == TOK_WHITESPACE || val == TOK_TAB || val == TOK_EOL)
+        switch (val) {
+        case TOK_WHITESPACE:
             current_idx++;
-        else
+            spaces_in_a_row++;
+            ASSERT(spaces_in_a_row < 4);
             break;
+        case TOK_TAB:
+            current_idx++;
+            spaces_in_a_row = 0;
+            current_scope += line_just_started;
+            break;
+        case TOK_EOL:
+            current_idx++;
+            line_just_started = true;
+            current_scope = 0;
+            spaces_in_a_row = 0;
+            break;
+        default:
+            looping = false;
+            spaces_in_a_row = 0;
+            line_just_started = false;
+        }
     }
 }
 
@@ -547,16 +569,20 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
         return ParserException(vec[current_idx], "expected \":\" after non-extern function declaration");
     
     int token_delta = this->next(); // move fd from ':'. if the function creation fails then go back this many steps
-    // Try
-    Result<Expression> body_res = parse_expression();
-    
-    // If parsing an expression for the body fails, then return the error contained inside
-    if (!body_res)
-        return body_res.unwrap_err();
-
-    Expression body = body_res.unwrap();
     std::vector<Expression> ret_vec;
-    ret_vec.push_back(std::move(body));
+
+    while (this->current_scope == 1) {
+        bool should_parse_next_expression = current().val() != TOK_EOF;
+        if (!should_parse_next_expression)
+            break;
+
+        Result<Expression> body_res = parse_expression();
+        if (!body_res)
+            return body_res.unwrap_err();
+        Expression body = body_res.unwrap();
+        
+        ret_vec.push_back(std::move(body));
+    }
 
     // here we check if the function contains bad variables (like variables of type void)
     bool has_bad_args = false;

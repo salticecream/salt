@@ -13,6 +13,8 @@ typedef void ParserReturnType;
 class Parser {
 private:
     int current_idx;
+    int current_scope;
+    bool line_just_started;
     static Parser* instance; // Singleton just like Lexer.
     const std::vector<Token>& vec;
     const Token& current() const;
