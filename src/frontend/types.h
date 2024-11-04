@@ -3,6 +3,7 @@
 #include <vector>
 
 #define SALT_TYPE_UNKNOWN	(salt::all_types["__UnknownTy"])	// The type is to be resolved later; implicitly convert into the correct type
+#define SALT_TYPE_RETURN	(salt::all_types["__ReturnTy"])		// An uninitialized "return X", caused by expressions of the type "return ((return 25) + 25)", make sure the inner "return" doesn't generate any code and crash LLVM
 #define SALT_TYPE_ERROR		(salt::all_types["__ErrorTy"])		// The type is incorrect; return an Exception or crash
 #define SALT_TYPE_NEVER		(salt::all_types["__NeverTy"])		// The expression or function does not return at all
 #define SALT_TYPE_VOID		(salt::all_types["void"])			// The expression or function returns nothing
@@ -63,6 +64,7 @@ struct TypeInstance {
 	TypeInstance() : type(nullptr), pointee(nullptr), ptr_layers(0) {}
 	// operator const salt::Type*() const { return type; }
 	operator bool() const { return !!type; }
+	bool operator==(const TypeInstance& other) const;
 	llvm::Type* get() { return const_cast<llvm::Type*>(type->get()); }
 	std::string str() const;
 	// const salt::Type*& operator->() { return type; }

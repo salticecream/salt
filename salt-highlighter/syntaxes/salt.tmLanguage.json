@@ -92,7 +92,7 @@
 		"bad-words": {
 			"patterns": [{
 				"name": "invalid.illegal.salt",
-				"match": "\\b(__Pointer)\\b"
+				"match": "\\b(__Pointer|__UnknownTy|__ReturnTy|__NeverTy)\\b"
 			}]
 		}
 

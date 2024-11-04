@@ -26,6 +26,7 @@ void salt::fill_types(int word_size) {
 		{"__UnknownTy",		nullptr},
 		{"__ErrorTy",		new salt::Type("<error type>",		llvm::Type::getVoidTy(*global_context),		0)},
 		{"__NeverTy",		new salt::Type("<never type>",		llvm::Type::getVoidTy(*global_context),		0)},
+		{"__ReturnTy",		new salt::Type("<retexpr type>",	llvm::Type::getVoidTy(*global_context),		0)},
 		{"void",			new salt::Type("void",				llvm::Type::getVoidTy(*global_context),		0)},
 
 		{"bool",			new salt::Type("bool",				llvm::Type::getInt1Ty(*global_context),		2,					false)},
@@ -108,4 +109,11 @@ bool salt::Type::is_float() const {
 
 bool salt::Type::is_numeric() const {
 	return is_integer() || is_float();
+}
+
+bool TypeInstance::operator==(const TypeInstance& other) const {
+	return
+		type == other.type &&
+		pointee == other.pointee &&
+		ptr_layers == other.ptr_layers;
 }

@@ -9,6 +9,11 @@
 // typedef void ParserReturnType (temporaily for parse() function)
 typedef void ParserReturnType;
 
+// return difference between current_idx and old current_idx, and also true/false for if a newline was encountered
+struct ParserNextType {
+    int delta;
+    bool new_statement;
+};
 
 class Parser {
 private:
@@ -48,10 +53,10 @@ private:
 
     
 
-    void skip_whitespace();
-    void skip_whitespace_back();
-    int next(); // returns delta between new and old positions
-    int back(); // returns delta between new and old positions
+    bool skip_whitespace(); // returns true if newline occured.
+    bool skip_whitespace_back();
+    ParserNextType next(); // returns delta between new and old positions
+    ParserNextType back(); // returns delta between new and old positions
     bool can_go_next();
 
     salt::Result<void> handle_extern();

@@ -200,8 +200,8 @@ Expression& RepeatAST::loop_body() {
 ReturnAST::ReturnAST(const Token& tok, Expression expr) : return_val(std::move(expr)) {
     this->line_ = tok.line();
     this->col_ = tok.col();
-    this->ti_ = SALT_TYPE_VOID;
-    this->expected_return_type = nullptr;
+    this->ti_ = SALT_TYPE_RETURN;
+    this->expected_return_type = SALT_TYPE_RETURN;
 }
 
 
@@ -220,13 +220,15 @@ using namespace llvm;
 
 Value* ValExprAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
-    const llvm::Type* my_type = type()->get();
+    llvm::Type* my_type = const_cast<llvm::Type*>(type()->get());
 
     // we return the biggest possible int size so we dont lose any data if the user actually does want a (u)i64
     if (my_type == llvm::Type::getInt64Ty(*gen->context))
         return llvm::ConstantInt::get(llvm::Type::getInt64Ty(*gen->context), val_.i64, true);
     else if (my_type == llvm::Type::getDoubleTy(*gen->context))
         return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*gen->context), val_.f64);
+    else if (my_type == llvm::Type::getVoidTy(*gen->context))
+        return llvm::PoisonValue::get(my_type);
     else if (my_type == llvm::PointerType::get(*gen->context, 0)) {
 
         // type is void*, only one case: null keyword
@@ -777,7 +779,7 @@ Value* BinaryExprAST::code_gen() {
     break;
 
     default:
-        print_fatal("Found bad token " + Token(op_).str() + "in BinaryExprAST::code_gen()");
+        print_fatal("Found bad token " + Token(op_).str() + " in BinaryExprAST::code_gen()");
     }
 }
 
@@ -785,7 +787,7 @@ Value* DerefExprAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
     if (type() != SALT_TYPE_VOID)
         return gen->builder->CreateLoad(const_cast<llvm::Type*>(this->type()->get()), this->expr_->code_gen(), "dereftmp");
-    print_error(f_string("%d:%d: cannot dereference void*, please cast to a different pointer type using the \"as\" keyword", this->line(), this->col()));
+    print_error(f_string("%d:%d: attempting to dereference wrong type, please cast to a correct pointer type using the \"as\" keyword", this->line(), this->col()));
     return nullptr;
 }
 
@@ -924,12 +926,22 @@ Value* IfExprAST::code_gen() {
 
 Value* ReturnAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
-    if (return_val->type() == SALT_TYPE_VOID)
-        return gen->builder->CreateRetVoid();
+    TypeInstance& expected_salt_type = this->expected_return_type;
+
+    if (!expected_return_type)
+        print_fatal("No expected return type in ReturnAST");
+
+    else if (expected_return_type == TypeInstance(SALT_TYPE_RETURN))
+        return llvm::PoisonValue::get(llvm::Type::getVoidTy(*gen->context)); // don't create a return here, because it was not initialized
+
+    if (return_val->type() == SALT_TYPE_VOID && expected_salt_type.type == SALT_TYPE_VOID) {
+        gen->builder->CreateRetVoid();
+        return llvm::PoisonValue::get(llvm::Type::getVoidTy(*gen->context));
+    }
 
     if (Expression& ret_expr = this->return_val) {
         Value* res = ret_expr->code_gen();
-        TypeInstance& expected_salt_type = this->expected_return_type;
+        
         TypeInstance& actual_salt_type = ret_expr->type_instance();
 
         const llvm::Type* expected_type = expected_salt_type.get();
@@ -957,7 +969,9 @@ Value* ReturnAST::code_gen() {
                 res = attempted_conversion;
             }
             else {
-                print_error(f_string("returning %s when %s was expected",
+                print_error(f_string("%d:%d: returning %s when %s was expected",
+                    this->line(),
+                    this->col(),
                     actual_salt_type.str().c_str(),
                     expected_salt_type.str().c_str()));
                 if (!expected_type || expected_type == llvm::Type::getVoidTy(*gen->context)) {
@@ -979,10 +993,10 @@ Value* ReturnAST::code_gen() {
         salt::dbout << "created return" << std::endl;
 
 
-        return nullptr;
+        return llvm::PoisonValue::get(llvm::Type::getVoidTy(*gen->context));
     }
 
-    return nullptr;
+    return llvm::PoisonValue::get(llvm::Type::getVoidTy(*gen->context));
 }
 
 Function* DeclarationAST::code_gen() {

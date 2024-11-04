@@ -33,9 +33,11 @@ Parser::Parser(const std::vector<Token>& vec_ref) : vec(vec_ref), is_parsing_ext
 }
 
 // Helper functions for Parser::parse().
-void Parser::skip_whitespace() {
+bool Parser::skip_whitespace() {
     int spaces_in_a_row = 0;
     bool looping = true;
+    bool return_val = false;
+
     while (looping) {
         Token_e val = vec[current_idx].val();
         switch (val) {
@@ -54,6 +56,7 @@ void Parser::skip_whitespace() {
             line_just_started = true;
             current_scope = 0;
             spaces_in_a_row = 0;
+            return_val = true;
             break;
         default:
             looping = false;
@@ -61,13 +64,59 @@ void Parser::skip_whitespace() {
             line_just_started = false;
         }
     }
+
+    return return_val;
+}
+
+// warning, this function does not set current_scope correctly
+// if you use it remember to restore current_scope!
+bool Parser::skip_whitespace_back() {
+    bool looping = true;
+    bool return_val = false;
+
+    while (looping && current_idx > 0) {
+        Token_e val = vec[current_idx].val();
+        switch (val) {
+        case TOK_WHITESPACE:
+            current_idx--;
+            break;
+        case TOK_TAB:
+            current_idx--;
+            break;
+        case TOK_EOL:
+            current_idx--;
+            return_val = true;
+            break;
+        default:
+            looping = false;
+        }
+    }
+
+    return return_val;
+}
+
+// warning, this function does not set current_scope correctly
+// if you use it remember to restore current_scope!
+ParserNextType Parser::back() {
+    int old = current_idx;
+
+    if (current_idx < 0)
+        print_fatal("Parser's current index is negative");
+
+    if (current_idx == 0)
+        print_fatal("Trying to call Parser::back() when parser's index is 0");
+
+    current_idx--;
+    bool skipped_newline = skip_whitespace_back();
+    return { old - current_idx, skipped_newline };
+    
 }
 
 bool Parser::can_go_next() {
     return current_idx < vec.size() - 1;
 }
 
-int Parser::next() {
+ParserNextType Parser::next() {
     int cur_pos = current_idx;
     if (current_idx == vec.size() - 1)
         salt::print_fatal("current_idx reached vec size");
@@ -79,8 +128,8 @@ int Parser::next() {
         salt::print_fatal("current_idx EXCEEDED vec size");
 
     current_idx++;
-    skip_whitespace();
-    return current_idx - cur_pos;
+    bool new_line_skipped = skip_whitespace();
+    return { current_idx - cur_pos, new_line_skipped };
 }
 
 const Token& Parser::current() const { return vec[current_idx]; }
@@ -143,7 +192,7 @@ Result<Expression> Parser::parse_number_expr() {
 
     }
     
-    int token_delta = this->next();
+    int token_delta = this->next().delta;
     if (!error) {
         if (should_return_float)
             return std::make_unique<ValExprAST>(vec[current_idx - 1], val_float, SALT_TYPE_DOUBLE);
@@ -176,7 +225,10 @@ Result<Expression> Parser::parse_paren_expr() {
         // We expected parenthesis, we didnt get right parenthesis
         return ParserException(vec[current_idx], "expected \")\"");
     this->next(); // ok, move forward from this right paren as well
-    return res.unwrap();
+    if (res)
+        return res.unwrap();
+    else
+        return res.unwrap_err();
 }
 
 /// @todo: add type here, dont assume "int" (but how?)
@@ -308,8 +360,21 @@ Result<Expression> Parser::parse_primary() {
 }
 
 Result<Expression> Parser::parse_expression() {
-    if (Result<Expression> lhs_res = parse_primary())
+    // if (Result<Expression> ret_res = parse_return())
+    //    return ret_res.unwrap();
+
+    if (Result<Expression> lhs_res = parse_primary()) {
+        // We parsed a primary expression, and we are currently at what might be a binary op
+        // If the binary op is on the same line as the expression, then create a binary expr
+        // Otherwise, if we had to go to a new line to reach this binary op, just return the lhs
+        int old_pos = current_idx;
+        ParserNextType pnt = this->back();
+        current_idx = old_pos;
+        if (pnt.new_statement) 
+            return lhs_res.unwrap();
+
         return parse_binop_rhs(0, std::move(lhs_res.unwrap()));
+    }
     else
         return lhs_res.unwrap_err();
 }
@@ -318,7 +383,7 @@ Result<Expression> Parser::parse_binop_rhs(int prec, Expression lhs) {
     while (true) {
         // We are currently at what we presume to be a binary op
         // Therefore, get its precedence.
-        const Token& op = vec[current_idx]; 
+        const Token& op = vec[current_idx];
         int tok_prec = BinaryOperator::get_precedence(op.val());
 
         // We passed in 0 from the start. If 0 is higher than tok_prec
@@ -330,7 +395,7 @@ Result<Expression> Parser::parse_binop_rhs(int prec, Expression lhs) {
 
         // Ok, op is a binary operator and it binds more tightly than whatever we passed in.
         // Directly following op we expect a primary expression. Therefore, jump to it.
-        this->next(); 
+        this->next();
 
         // We evaluate the (primary) expression on the rhs of op. For example, if the expression is 1 + 2 * 3
         // then lhs is 1, op is '+' and rhs is (currently) 2.
@@ -356,7 +421,15 @@ Result<Expression> Parser::parse_binop_rhs(int prec, Expression lhs) {
 
         Expression rhs = rhs_res.unwrap();
     
-        // parse_primary() calls this->next(). So we are currently at what we assume to be another binop
+        // parse_primary() calls this->next(). So we are currently at what we assume to be another binop.
+        // But we must check if there was a newline between this new binop and the primary we just parsed. 
+        // In that case, we are done.
+        int old_idx = current_idx;
+        bool there_was_newline = this->back().new_statement;
+        current_idx = old_idx;
+
+        if (there_was_newline)
+            return std::make_unique<BinaryExprAST>(op, std::move(lhs), std::move(rhs));
 
         // Now we check to see if the next token binds more tightly than op. If so, we need to calculate that first.
         // In our 1 + 2 * 3 example, the RHS of op (2), should be calculated using the *, not with the +.
@@ -537,11 +610,16 @@ Result<Expression> Parser::parse_return() {
 
     this->next();
 
+    int old_position = current_idx;
+
     Result<Expression> res = parse_expression();
-    if (res)
+    if (res.is_ok()) {
         return std::make_unique<ReturnAST>(vec[cur], std::move(res.unwrap()));
-    else
-        return res.unwrap_err();
+    }
+    else { // clearly, the user meant to return void, since an expression was not found!
+        this->current_idx = old_position;
+        return std::make_unique<ReturnAST>(vec[cur], std::make_unique<ValExprAST>(vec[cur], int64_t(0), SALT_TYPE_VOID));
+    }
 }
 
 Result<Expression> Parser::parse_deref() {
@@ -556,6 +634,8 @@ Result<Expression> Parser::parse_deref() {
         return ptr.unwrap_err();
 }
 
+/// @todo: to check if a function always returns a value, you can remember this
+// a function will return a value iff the last statement is a return, or a conditional that is fully saturated with returns
 Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
     // assume that the current token is TOK_FN
     auto decl_res = parse_declaration(); // consumes that token
@@ -568,8 +648,9 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
     if (vec[current_idx].val() != TOK_COLON)
         return ParserException(vec[current_idx], "expected \":\" after non-extern function declaration");
     
-    int token_delta = this->next(); // move fd from ':'. if the function creation fails then go back this many steps
+    int token_delta = this->next().delta; // move fd from ':'. if the function creation fails then go back this many steps
     std::vector<Expression> ret_vec;
+    bool already_parsed_return = false;
 
     while (this->current_scope == 1) {
         bool should_parse_next_expression = current().val() != TOK_EOF;
@@ -580,8 +661,16 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
         if (!body_res)
             return body_res.unwrap_err();
         Expression body = body_res.unwrap();
-        
-        ret_vec.push_back(std::move(body));
+
+        if (!already_parsed_return)
+            ret_vec.push_back(std::move(body));
+
+        if (ReturnAST* parsed_ret = ret_vec.back()->to_return()) {
+            if (already_parsed_return)
+                print_warning(f_string("%d:%d: code after a return will be ignored", parsed_ret->line(), parsed_ret->col()));
+            already_parsed_return = true;
+        }
+
     }
 
     // here we check if the function contains bad variables (like variables of type void)
@@ -799,10 +888,10 @@ ParserException::ParserException(const Token& tok, const char* str) :
         + std::to_string(tok.col())
         + ": found token "
         + tok.str()
-        + '['
+        + "[\""
         + (tok.has_data() ? tok.data() : "")
-        + ", "
-        + (tok.count() ? std::to_string(tok.count()) : "")
+        + "\", "
+        + std::to_string(tok.count())
         + "], "
         + str
         )) {}

@@ -8,6 +8,7 @@ namespace BinaryOperator {
 
     void fill_map() {
         salt::dboutv << "Filling map of binary operators\n";
+
         BINOP_MAP[TOK_AS] = millions(22);
 
         BINOP_MAP[TOK_MUL] = millions(21);
@@ -55,6 +56,7 @@ namespace BinaryOperator {
         BINOP_MAP[TOK_XOR_ASSIGN] = TOK_ASSIGN;
     }   
 
+    // clever... inserts the value into the binop_map, but since it's 0 it returns -1
     int get_precedence(const Token_e val) {
         if (int res = BINOP_MAP[val])
             return res;
