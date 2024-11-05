@@ -16,6 +16,9 @@ extern std::unique_ptr<llvm::LLVMContext> global_context;
 class IRGenerator {
 private:
 	static IRGenerator* instance;
+	void add_prelude();
+	void add_std_prelude();
+	void generate_llvm_declaration(const std::string& function_name, const std::string& return_type, int argument_count, ...);
 	IRGenerator();
 
 public:
@@ -26,6 +29,7 @@ public:
 	std::unique_ptr<llvm::IRBuilder<>> builder;
 
 	// The module is an object that contains all of the memory for the IR that is generated
+	// When the module is created, we will also declare the intrinsic functions that form the prelude
 	std::unique_ptr<llvm::Module> mod;
 
 	// Keeps track of all named values.
@@ -33,6 +37,8 @@ public:
 	std::map<std::string, llvm::Value*> named_values;
 
 	std::map<std::string, llvm::Constant*> named_strings;
+
+	std::map<std::string, llvm::Function*> named_functions;
 
 
 	// For optimization purposes

@@ -11,15 +11,15 @@
 #define ASTCNDEBUG 1
 #endif
 
-
+bool salt::no_std = false; // common.h
 static int files_compiled = 0;
 static bool any_compile_error_in_any_file = false;
-static bool no_std = false;
 static const char* libraries = "kernel32.lib user32.lib msvcrt.lib";
 static std::vector<std::string> compiled_files; // we will link them all together
 static int link_all();
 std::string output_name = "a";
 static bool user_chosen_output_name = false;
+const char* PRELUDE_FILE = "prelude.sl";
 
 
 // Only for windows, only to .o
@@ -90,7 +90,7 @@ static void set_flags(const std::vector<CompilerFlag>& flags) {
             salt::dberr.activate();
             break;
         case f::NO_STD:
-            no_std = true;
+            salt::no_std = true;
             break;
         default:
             salt::print_fatal(salt::f_string("bad flag to set_flags(): %d", flag));
@@ -109,13 +109,28 @@ int main(int argc, const char** argv) {
     // Read argv and populate input_files and compiler_flags
     // If argc == 0 then continue as usual (but this is deprecated)
     for (int i = 1; i < argc; i++) {
+
+        // Handle -o so the user can choose which file to output to
+        if (argv[i] == std::string("-o")) {
+            i++;
+            if (i < argc && argv[i]) { // redundancy
+                output_name = argv[i];
+                user_chosen_output_name = true;
+                continue;
+            } else {
+                salt::print_fatal("expected file name after -o");
+            }
+        }
+
         if (Flags::all_flags.count(argv[i])) /* if argv[i] is a flag, then */ {
             // add this flag to compiler_flags.
             /// @todo: add flags which are options/have data (for example: -o output.exe)
             compiler_flags.push_back(CompilerFlag(Flags::all_flags[argv[i]]));
 
+
         } else if (string_ends_with(argv[i], ".sl")) {
             input_files.push_back(argv[i]);
+
         } else {
             salt::print_fatal(salt::f_string("could not parse file or flag \"%s\"", argv[i]));
         }
@@ -132,8 +147,16 @@ int main(int argc, const char** argv) {
         for (const char* input_file : input_files) {
             // Tokenize the file
             any_compile_error_occured = false;
+
             Lexer* lexer = Lexer::get();
-            std::vector<Token> vec = lexer->tokenize(input_file);
+            std::vector<Token> vec = lexer->tokenize(PRELUDE_FILE);
+            vec.pop_back(); // remove EOF
+            vec.push_back(TOK_EOL);
+
+            Lexer::destroy();
+            lexer = Lexer::get();
+            std::vector<Token> input_vec = lexer->tokenize(input_file);
+            vec.insert(vec.end(), std::make_move_iterator(input_vec.begin()), std::make_move_iterator(input_vec.end()));
             salt::dbout << "Done tokenizing" << std::endl;
             for (const salt::Exception& e : lexer->errors())
                 salt::dbout << e.what() << std::endl;
@@ -177,9 +200,9 @@ int main(int argc, const char** argv) {
 
 
 static int link_all() {
-    if (no_std && !user_chosen_output_name)
+    if (salt::no_std && !user_chosen_output_name)
         output_name += ".bin";
-    else if (!no_std && !user_chosen_output_name)
+    else if (!salt::no_std && !user_chosen_output_name)
         output_name += ".exe";
 
     // safe? should be safe because file names inputted here can't contain escape symbols
@@ -188,15 +211,17 @@ static int link_all() {
     for (const std::string& file_name : compiled_files)
         command_to_run += file_name + ' ';
 
-    if (!no_std)
+    if (!salt::no_std)
         command_to_run += libraries;
     else
         command_to_run += "/nodefaultlib ";
 
-    // remember to clean up by removing the tmp files we made
-    // for (const std::string& file_name : compiled_files)
-    //    std::system(salt::f_string("rm %s", file_name.c_str()).c_str());
+    int res = std::system(command_to_run.c_str());
 
-    return std::system(command_to_run.c_str());
+    //remember to clean up by removing the tmp files we made
+    for (const std::string& file_name : compiled_files)
+        std::system(salt::f_string("rm %s", file_name.c_str()).c_str());
+
+    return res;
 
 }
