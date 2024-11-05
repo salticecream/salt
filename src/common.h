@@ -31,7 +31,9 @@ extern bool any_compile_error_occured;
 
 
 
+
 namespace salt {
+    extern bool main_function_found;
     extern int WARNING_LEVEL;
     class TextColor; // defined below
 

@@ -8,6 +8,7 @@ using namespace salt;
 
 // Global variables
 bool any_compile_error_occured = false;
+bool salt::main_function_found = false;
 MaybeStream salt::dbout;
 MaybeStream salt::dberr;
 MaybeStream salt::dboutv;

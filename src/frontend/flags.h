@@ -8,6 +8,7 @@
 enum class Flags_e : uint64_t {
     DEBUG_OUTPUT,
     DEBUG_OUTPUT_VERBOSE,
+    NO_STD,
     TOTAL,
 };
 

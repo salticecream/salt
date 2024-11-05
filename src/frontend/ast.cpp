@@ -1110,6 +1110,11 @@ Function* FunctionAST::code_gen() {
     }
 
     salt::dbout << f_string("successfully created function %s\n", this->decl()->name().c_str());
+
+    // every program needs a main function
+    if (f->getName() == "main")
+        salt::main_function_found = true;
+
     return f;
 }
 
