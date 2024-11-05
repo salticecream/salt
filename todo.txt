@@ -1,3 +1,0 @@
-fix invalid binops (like void + int) -> should return poison int
-void + void -> return poison int also
-warn user on overflowing constants, for example returning 2147483648.0 (notice double) as int returns poison without warning user
