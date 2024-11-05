@@ -772,7 +772,8 @@ std::vector<Token>& Lexer::tokenize(const char* str) {
     }
 
     if ((!vec.empty() && vec.back().val() != TOK_EOF) || vec.empty()) {
-        salt::print_warning("could not read EOF; please try ending your file with a newline character");
+        if (salt::dberr.is_active())
+            salt::print_warning("could not read EOF; please try ending your file with a newline character");
         vec.push_back(Token(TOK_EOF));
     }
 

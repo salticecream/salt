@@ -1233,12 +1233,35 @@ Value* salt::convert_implicit(llvm::Value* value, const llvm::Type* _type, bool 
 
         // New type is int
         } else if (type->isIntegerTy()) {
+            /// @todo: Fix poison when conversion would overflow
             // Signed int -> float type
-            if (is_signed)
-                return gen->builder->CreateFPToSI(value, type, "floatintconvtemp");
+            if (is_signed) {
+                Value* ret_val = gen->builder->CreateFPToSI(value, type, "floatintconvtemp");
+                if (llvm::ConstantFP* constant = dyn_cast<ConstantFP>(value)) {
+                    double constant_as_double = constant->getValue().convertToDouble();
+                    if (llvm::IntegerType* int_type = dyn_cast<IntegerType>(type)) {
+                        double max_val_as_double = std::pow(2.0, int_type->getPrimitiveSizeInBits() - 1);
+                        if (constant_as_double >= max_val_as_double - 1.0)
+                            print_warning("possible overflow when converting floating type to integer");
+                        else if (constant_as_double <= -max_val_as_double)
+                            print_warning("possible underflow when converting floating type to integer");
+                    }
+                }
+                return ret_val;
+            }
             // Unsigned int -> float type
-            else
-                return gen->builder->CreateFPToUI(value, type, "floatuintconvtemp");
+            else {
+                Value* ret_val = gen->builder->CreateFPToUI(value, type, "floatuintconvtemp");
+                if (llvm::ConstantFP* constant = dyn_cast<ConstantFP>(value)) {
+                    double constant_as_double = constant->getValue().convertToDouble();
+                    if (llvm::IntegerType* int_type = dyn_cast<IntegerType>(type)) {
+                        double max_val_as_double = std::pow(2.0, int_type->getPrimitiveSizeInBits());
+                        if (constant_as_double >= max_val_as_double - 1.0)
+                            print_warning("possible overflow when converting floating type to integer");
+                    }
+                }
+                return ret_val;
+            }
 
             // A floating type cannot implicitly convert to this type
         }
