@@ -42,8 +42,7 @@ Lexer* Lexer::get() {
     return instance_ ? instance_ : instance_ = new Lexer();
 }
 
-// Destroys the current lexer. Probably doesn't need to be called, since the
-// lexer should last for the entire program anyway.
+// Destroys the current lexer. 
 void Lexer::destroy() {
     if (Lexer* lexer = Lexer::get()) {
         delete lexer;
