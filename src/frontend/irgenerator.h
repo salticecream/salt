@@ -45,13 +45,13 @@ public:
 	std::unique_ptr<llvm::LoopAnalysisManager> loop_analysis_mgr;
 	std::unique_ptr<llvm::FunctionPassManager> fn_pass_mgr;
 	std::unique_ptr<llvm::legacy::FunctionPassManager> legacy_fn_pass_mgr;
+	std::unique_ptr<llvm::ModulePassManager> module_pass_mgr;
 	std::unique_ptr<llvm::FunctionAnalysisManager> fn_analysis_mgr;
 	std::unique_ptr<llvm::CGSCCAnalysisManager> cgscc_analysis_mgr; // call graph strongly connected component
 	std::unique_ptr<llvm::ModuleAnalysisManager> module_analysis_mgr;
 	std::unique_ptr<llvm::PassInstrumentationCallbacks> pass_instrumentation_callbacks;
 	std::unique_ptr<llvm::StandardInstrumentations> std_instrumentations;
-
-	llvm::PassBuilder pass_builder;
+	std::unique_ptr<llvm::PassBuilder> pass_builder;
 
 
 

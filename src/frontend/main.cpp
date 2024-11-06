@@ -20,13 +20,14 @@ static int link_all();
 std::string output_name = "a";
 static bool user_chosen_output_name = false;
 const char* PRELUDE_FILE = "prelude.sl";
+static llvm::OptimizationLevel optimization_level = llvm::OptimizationLevel::O0;
 
 
 // Only for windows, only to .o
 static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*/) {
     using namespace salt;
     std::string target_triple = llvm::sys::getDefaultTargetTriple();
-    salt::dbout << "target triple: " << target_triple;
+    salt::dbout << "target triple: " << target_triple << '\n';
     std::string error;
 
     llvm::InitializeNativeTarget();
@@ -54,8 +55,17 @@ static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*
     // for (auto& func : gen->mod->functions())
     //     gen->fn_pass_mgr->run(func, *gen->fn_analysis_mgr);
 
-    for (auto& func : gen->mod->functions())
-        gen->legacy_fn_pass_mgr->run(func);
+    // for (auto& func : gen->mod->functions())
+    //    gen->legacy_fn_pass_mgr->run(func);
+
+    llvm::ModulePassManager module_pass_mgr = gen->pass_builder->buildPerModuleDefaultPipeline(optimization_level);
+    module_pass_mgr.run(*gen->mod, *gen->module_analysis_mgr);
+
+    std::cerr << "optimized functions: ";
+    for (const auto& fn : gen->mod->functions()) {
+        fn.print(llvm::outs());
+        std::cerr << '\n';
+    }
 
 
 

@@ -38,15 +38,18 @@ IRGenerator::IRGenerator() : context(global_context) {
 
 
 	// For optimization and whatnot
+	pass_builder = std::make_unique<llvm::PassBuilder>(); // to be set later!
 	loop_analysis_mgr = std::make_unique<llvm::LoopAnalysisManager>();
 	legacy_fn_pass_mgr = std::make_unique<llvm::legacy::FunctionPassManager>(this->mod.get());
 	fn_pass_mgr = std::make_unique<llvm::FunctionPassManager>();
 	fn_analysis_mgr = std::make_unique<llvm::FunctionAnalysisManager>();
 	cgscc_analysis_mgr = std::make_unique<llvm::CGSCCAnalysisManager>();
 	module_analysis_mgr = std::make_unique<llvm::ModuleAnalysisManager>();
+	module_pass_mgr = std::make_unique<llvm::ModulePassManager>();
 	pass_instrumentation_callbacks = std::make_unique<llvm::PassInstrumentationCallbacks>();
 	std_instrumentations = std::make_unique<llvm::StandardInstrumentations>(*context, /*DebugLogging = */ true);
 	std_instrumentations->registerCallbacks(*pass_instrumentation_callbacks, module_analysis_mgr.get());
+	
 
 	// Add optimization passes
 	fn_pass_mgr->addPass(llvm::InstCombinePass());							// optimize calculations
@@ -61,14 +64,14 @@ IRGenerator::IRGenerator() : context(global_context) {
 	legacy_fn_pass_mgr->add(pass3);
 
 	// Register analysis passes that are used by these transform passes
-	pass_builder.registerModuleAnalyses(*module_analysis_mgr);
-	pass_builder.registerCGSCCAnalyses(*cgscc_analysis_mgr);
-	pass_builder.registerFunctionAnalyses(*fn_analysis_mgr);
-	pass_builder.registerLoopAnalyses(*loop_analysis_mgr);
-	pass_builder.crossRegisterProxies(*loop_analysis_mgr, *fn_analysis_mgr, *cgscc_analysis_mgr, *module_analysis_mgr);
+	pass_builder->registerModuleAnalyses(*module_analysis_mgr);
+	pass_builder->registerCGSCCAnalyses(*cgscc_analysis_mgr);
+	pass_builder->registerFunctionAnalyses(*fn_analysis_mgr);
+	pass_builder->registerLoopAnalyses(*loop_analysis_mgr);
+	pass_builder->crossRegisterProxies(*loop_analysis_mgr, *fn_analysis_mgr, *cgscc_analysis_mgr, *module_analysis_mgr);
 
-	// Add the prelude
-	add_prelude();
+	// Add the prelude - Deprecated, this is done in main:main()
+	// add_prelude();
 }
 
 // for example, generate_llvm_declaration("print", "void", 1, __Pointer)
