@@ -161,8 +161,9 @@ int main(int argc, const char** argv) {
 
             Lexer* lexer = Lexer::get();
             std::vector<Token> vec = lexer->tokenize(PRELUDE_FILE);
-            vec.pop_back(); // remove EOF
-            vec.push_back(TOK_EOL);
+            while (vec.size() && vec.back().val() == TOK_EOF)
+                vec.pop_back();
+            vec.push_back(TOK_EOL); vec.push_back(TOK_EOL);
 
             Lexer::destroy();
             lexer = Lexer::get();

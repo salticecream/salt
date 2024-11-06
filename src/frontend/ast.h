@@ -131,8 +131,7 @@ private:
     Expression false_expr_;
 public:
     virtual bool is_if() const override { return true; }
-    IfExprAST(Expression cond, Expression true_expr, Expression false_expr, TypeInstance ti = SALT_TYPE_LONG) :
-        condition_(std::move(cond)), true_expr_(std::move(true_expr)), false_expr_(std::move(false_expr)) { ti_ = ti; }
+    IfExprAST(const Token& if_tok, Expression cond, Expression true_expr, Expression false_expr, TypeInstance ti = SALT_TYPE_LONG);
     llvm::Value* code_gen() override;
 };
 
@@ -217,12 +216,12 @@ public:
 
 namespace salt {
     // Returns a llvm::Value* corresponding to value converted to type, or nullptr if this is not possible to do implicitly.
-    // You need to specify both for the old and new values if they are signed or not.
+    // You need to specify if the old value was signed or not..
     // Essentially only useful for converting numeric values to the correct type in expressions.
     llvm::Value* convert_implicit(llvm::Value* value, const llvm::Type* type, bool is_signed);
 
     // Returns a llvm::Value* corresponding to value converted to type, or nullptr if this is not possible to do explicitly.
     // You need to specify both for the old and new values if they are signed or not.
-    // A stronger version of convert_implicit, it can cast anything to void, and convert bool to integral types.
+    // A stronger version of convert_implicit, it can cast anything to void, and cast between integer and pointer types.
     llvm::Value* convert_explicit(llvm::Value* value, const llvm::Type* type, bool is_signed);
 };

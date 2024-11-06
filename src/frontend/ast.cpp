@@ -54,6 +54,10 @@ std::string ExprAST::ast_type() const {
         my_type = "return expr";
     else if (this->is_call())
         my_type = "call expr";
+    else if (this->is_if())
+        my_type = "if expr";
+    else if (this->is_deref())
+        my_type = "deref expr";
 
     return my_type;
 }
@@ -112,31 +116,42 @@ BinaryExprAST::BinaryExprAST(const Token& tok, Expression lhs, Expression rhs) {
     this->line_ = lhs_->line();
     
     // type promotion: the BinaryExpr will have the size of the largest of the types, if an implicit conversion is possible
-    this->ti_.type = lhs_->type();
-    this->ti_.pointee = lhs_->pointee();
+    // however, if this is an explicit cast, then this expr will always have the same type as the rhs
+
+    if (this->op_ == TOK_AS) {
+        this->ti_ = rhs_->type_instance();
+        goto end_constructor;
+    }
+
+    bool any_error_ty = false;
+
+    this->ti_ = lhs_->type_instance();
     if (ti_.type->rank <= 1) {
-        this->ti_.type = SALT_TYPE_ERROR;
-        this->ti_.pointee = nullptr;
-        return;
+        this->ti_ = SALT_TYPE_ERROR;
+        any_error_ty = true;
     }
 
     const salt::Type* rhs_type = rhs_->type();
-    if (rhs_type->rank <= 1)
-        this->ti_.type = SALT_TYPE_ERROR;
-    else if (rhs_type->rank > this->ti_.type->rank) {
-        this->ti_.type = rhs_type;
-        this->ti_.pointee = rhs_->pointee();
+    if (rhs_type->rank <= 1) {
+        this->ti_ = SALT_TYPE_ERROR;
+        any_error_ty = true;
     }
 
-    if (this->ti_.type != SALT_TYPE_PTR)
-        this->ti_.pointee = nullptr;
-
-    // BANDAID fix probably: if the token is "AS", then no matter what, this expression must be the same type as RHS
-    if (this->op_ == TOK_AS)
+    if (rhs_type->rank > this->ti_.type->rank && !any_error_ty) {
         this->ti_ = rhs_->type_instance();
+    }
 
-    salt::dboutv << f_string("Created new BinExprAST with %s x %s -> %s\n", lhs_->type()->name, rhs_->type()->name, this->ti_.type->name);
+
+    end_constructor:
+        salt::dboutv << f_string("Created new BinExprAST with %s x %s -> %s\n", lhs_->type()->name, rhs_->type()->name, this->ti_.type->name);
     
+}
+
+IfExprAST::IfExprAST(const Token& if_tok, Expression cond, Expression true_expr, Expression false_expr, TypeInstance ti) : 
+    condition_(std::move(cond)), true_expr_(std::move(true_expr)), false_expr_(std::move(false_expr)) {
+    this->ti_ = ti;
+    this->line_ = if_tok.line();
+    this->col_ = if_tok.col();
 }
 
 const Expression& BinaryExprAST::lhs() const {
@@ -775,7 +790,18 @@ Value* BinaryExprAST::code_gen() {
         }
 
     }
-    break;
+        break;
+
+    case TOK_CARAT:
+        switch (bin_type) {
+        case BIN_TYPE_INT:
+        case BIN_TYPE_UINT:
+            return gen->builder->CreateXor(left, right, "xortmp");
+        default:
+            RET_POISON_WITH_ERROR(new_type);
+            break;
+        }
+        break;
 
     default:
         print_fatal("Found bad token " + Token(op_).str() + " in BinaryExprAST::code_gen()");
@@ -853,8 +879,6 @@ Value* IfExprAST::code_gen() {
     }
     else salt::dboutv << f_string("Condval ptr is %p\n", cond_val);
 
-    if (cond_val->getType() != llvm::Type::getInt1Ty(*gen->context))
-        print_error("fuck 1");
 
     // compare the condition to (llvm::bool)0, and set cond_val to the opposite of the result.
     cond_val = gen->builder->CreateICmpNE(
@@ -1087,7 +1111,7 @@ Function* FunctionAST::code_gen() {
             } else {
                 salt::dboutv << "Creating an extra poison return with type " << expected_salt_type.str() << '\n';
                 gen->builder->CreateRet(llvm::PoisonValue::get(expected_salt_type.get()));
-                print_warning(f_string("%d:%d: %s does not end with a return instruction", last_expr->line(), last_expr->col(), this->decl()->name()));
+                print_warning(f_string("%d:%d: %s does not end with a return instruction", last_expr->line(), last_expr->col(), this->decl()->name().c_str()));
             }
         }
 

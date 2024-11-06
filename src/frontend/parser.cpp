@@ -458,6 +458,8 @@ Result<Expression> Parser::parse_binop_rhs(int prec, Expression lhs) {
 
 Result<Expression> Parser::parse_if_expr() {
     // Assume we're at the keyword "if"
+    const Token& if_token = current();
+
     if (vec[current_idx].val() != TOK_IF)
         return ParserException(vec[current_idx], "expected keyword \"if\"");
     this->next();
@@ -493,7 +495,7 @@ Result<Expression> Parser::parse_if_expr() {
     // We've reached the end with no errors
     // Return a new if expression with cond, true_expr and false_expr.
 
-    return std::make_unique<IfExprAST>(cond_res.unwrap(), true_expr_res.unwrap(), false_expr_res.unwrap());
+    return std::make_unique<IfExprAST>(if_token, cond_res.unwrap(), true_expr_res.unwrap(), false_expr_res.unwrap());
 
 }
 
@@ -662,14 +664,13 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
             return body_res.unwrap_err();
         Expression body = body_res.unwrap();
 
-        if (!already_parsed_return)
+        if (already_parsed_return)
+            print_warning(f_string("%d:%d: code after a return will be ignored", body->line(), body->col()));
+        else
             ret_vec.push_back(std::move(body));
 
-        if (ReturnAST* parsed_ret = ret_vec.back()->to_return()) {
-            if (already_parsed_return)
-                print_warning(f_string("%d:%d: code after a return will be ignored", parsed_ret->line(), parsed_ret->col()));
+        if (ReturnAST* parsed_ret = ret_vec.back()->to_return()) 
             already_parsed_return = true;
-        }
 
     }
 
