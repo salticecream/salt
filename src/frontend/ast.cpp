@@ -249,6 +249,8 @@ Value* ValExprAST::code_gen() {
         return llvm::ConstantInt::get(llvm::Type::getInt64Ty(*gen->context), val_.i64, true);
     else if (my_type == llvm::Type::getDoubleTy(*gen->context))
         return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*gen->context), val_.f64);
+    else if (my_type == llvm::Type::getInt8Ty(*gen->context))
+        return llvm::ConstantInt::get(llvm::Type::getInt8Ty(*gen->context), val_.i64, true);
     else if (my_type == llvm::Type::getVoidTy(*gen->context))
         return llvm::PoisonValue::get(my_type);
     else if (my_type == llvm::PointerType::get(*gen->context, 0)) {

@@ -362,6 +362,20 @@ Result<Expression> Parser::parse_new_variable() {
 
 }
 
+Result<Expression> Parser::parse_char() {
+    if (current().val() != TOK_CHAR)
+        return ParserException(current(), "expected a char");
+
+    const Token& ch = current();
+    this->next();
+
+    if (ch.data().size() >= 2)
+        print_warning(f_string("%d:%d: multi-byte char, will be truncated to least significant byte", ch.line(), ch.col()));
+
+    char val = ch.data().back();
+    return std::make_unique<ValExprAST>(ch, int64_t(val), SALT_TYPE_CHAR);
+}
+
 Result<Expression> Parser::parse_primary() {
     Token_e val = vec[current_idx].val();
     switch (val) {
@@ -372,6 +386,8 @@ Result<Expression> Parser::parse_primary() {
     case TOK_NUMBER:
     case TOK_SUB:
         return parse_number_expr();
+    case TOK_CHAR: // not the char type, but a char like 'A'
+        return parse_char();
     case TOK_STRING:
         return parse_string_expr();
     case TOK_LEFT_BRACKET:
