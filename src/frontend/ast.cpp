@@ -292,16 +292,15 @@ Value* VariableExprAST::code_gen() {
     }
     salt::dboutv << f_string("I am a variable of type %s and my name is %s\n", this->type()->name, this->name());
 
-    llvm::AllocaInst* alloca_inst = gen->named_values[this->name()];
+    llvm::AllocaInst*& alloca_inst = gen->named_values[this->name()];
     
     if (!alloca_inst) {
-        print_fatal(f_string("Unknown variable name: %s", this->name()));
-        return nullptr; // Result(IRGeneratorException(this->line(), this->col(), "Unknown variable name: " + this->var_.name()));
+        print_error(f_string("variable %s does not exist", this->name()));
+        alloca_inst = gen->builder->CreateAlloca(llvm::Type::getVoidTy(*gen->context), nullptr, this->name());
     }
 
-
-
     return gen->builder->CreateLoad(alloca_inst->getAllocatedType(), alloca_inst, this->name().c_str());
+
 }
 
 Value* TypeExprAST::code_gen() {
@@ -759,17 +758,15 @@ Value* BinaryExprAST::code_gen() {
             return converted_rhs;
         }
 
-        salt::dberrv << "Should've dereferenced deref, but now instead we're dealing with a " << lhs_->ast_type() << '\n';
-        TODO();
-        
-        // all of this is wrong, you need to use DerefExprAST here somehow...
-        if (VariableExprAST* lhs_variable = lhs_->to_variable()) {
-            TODO();
-            Value* lhs_code = lhs_->code_gen();
+        // okay, it's not a deref, but instead it's a variable. so we can still assign to this
+        // and this will return rhs, same as above
+        else if (VariableExprAST* lhs_variable = lhs_->to_variable()) {
+
+            AllocaInst* lhs_code = gen->named_values[lhs_variable->name()];
             Value* rhs_code = rhs_->code_gen();
 
-            if (!lhs_code || !lhs_code->getType()->isPointerTy()) {
-                print_error(f_string("%d:%d: type `%s` cannot be dereferenced", lhs_->line(), lhs_->col(), lhs_->type_instance().str().c_str()));
+            if (!lhs_code) {
+                print_error(f_string("%d:%d: could not create lhs_code (ast.cpp, line %d, please contact salticecream)", lhs_->line(), lhs_->col(), __LINE__));
                 return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
             }
 
@@ -786,7 +783,13 @@ Value* BinaryExprAST::code_gen() {
             }
 
             /// @todo: This always crashes, replace nullptr with the correct value
-            gen->builder->CreateStore(converted_rhs, nullptr);
+            gen->builder->CreateStore(converted_rhs, lhs_code);
+            return converted_rhs;
+        }
+
+        else {
+            print_error(f_string("%d:%d: cannot assign to `%s`", lhs_->line(), lhs_->col(), lhs_->ast_type().c_str()));
+            return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
         }
 
     }
