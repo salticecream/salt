@@ -61,13 +61,6 @@ static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*
     llvm::ModulePassManager module_pass_mgr = gen->pass_builder->buildPerModuleDefaultPipeline(optimization_level);
     module_pass_mgr.run(*gen->mod, *gen->module_analysis_mgr);
 
-    std::cerr << "optimized functions: ";
-    for (const auto& fn : gen->mod->functions()) {
-        fn.print(llvm::outs());
-        std::cerr << '\n';
-    }
-
-
 
     std::string output_file = "__SaltOutputObjectTmp";
     output_file += std::to_string(++files_compiled);
