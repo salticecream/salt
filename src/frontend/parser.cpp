@@ -261,7 +261,7 @@ Result<Expression> Parser::parse_ident_expr() {
     std::vector<Expression> args;
     TypeInstance call_return_type = named_functions[ident_name];
     if (!call_return_type)
-        return Exception(f_string("Function %s does not exist", ident_name.c_str()));
+        return Exception(f_string("function %s does not exist", ident_name.c_str()));
 
     // skip (
     this->next();
@@ -274,7 +274,6 @@ Result<Expression> Parser::parse_ident_expr() {
             // const Token& tok = vec[current_idx];
             // const std::string& arg_name = tok.data();
 
-            /// @todo: add more types!!!
             Result<Expression> arg_res = parse_expression();
             if (!arg_res)
                 return arg_res.unwrap_err();
@@ -325,6 +324,44 @@ Result<Expression> Parser::parse_reserved_constant() {
     return std::move(res);
 }
 
+Result<Expression> Parser::parse_new_variable() {
+    // Assume we're at TOK_TYPE
+    if (current().val() != TOK_TYPE)
+        return ParserException(current(), "expected type in Parser::parse_new_variable()");
+    
+    TypeInstance ti = TypeInstance(current());
+    this->next();
+
+    // now we should be at the name of the variable we're trying to create
+    if (current().val() != TOK_IDENT)
+        return ParserException(current(), "expected identifier");
+
+    std::unique_ptr<VariableExprAST> new_variable = std::make_unique<VariableExprAST>(current(), ti);
+    this->next();
+
+    // now we should be at a '='
+    if (current().val() != TOK_ASSIGN)
+        return ParserException(current(), "expected \"=\" after new variable");
+
+    const Token& assign_tok = current();
+    this->next();
+
+    // now we should be at an expression, which we will parse
+    Result<Expression> rhs_res = parse_expression();
+    Expression rhs = nullptr;
+    if (rhs_res) {
+        rhs = rhs_res.unwrap();
+        if (!rhs->type() || rhs->type()->get() == SALT_TYPE_VOID->get())
+            return Exception(f_string("%d:%d: bad value for assignment", rhs->line(), rhs->col()));
+    }
+    else
+        return ParserException(current(), "expected expression");
+
+    this->named_values[new_variable->name()] = ti;
+    return std::make_unique<NewVariableAST>(assign_tok, std::move(new_variable), std::move(rhs));
+
+}
+
 Result<Expression> Parser::parse_primary() {
     Token_e val = vec[current_idx].val();
     switch (val) {
@@ -353,6 +390,8 @@ Result<Expression> Parser::parse_primary() {
         return parse_deref();
     case TOK_RETURN:
         return parse_return();
+    case TOK_TYPE:
+        return parse_new_variable();
     default:
         return ParserException(vec[current_idx],
             "expected primary expression (that is, a literal, a function call, an identifier, \"if\" or \"repeat\" keywords, or \"(\")");

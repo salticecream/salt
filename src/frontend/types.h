@@ -22,6 +22,8 @@
 #define SALT_TYPE_DOUBLE	(salt::all_types["double"])			// f64
 #define SALT_TYPE_PTR		(salt::all_types["__Pointer"])		// *
 
+class Token;
+
 namespace salt { 
 	class Type {
 	private:
@@ -61,6 +63,7 @@ struct TypeInstance {
 	TypeInstance(const salt::Type* non_ptr_type) : type(non_ptr_type), pointee(nullptr), ptr_layers(0) {}
 	TypeInstance(const salt::Type* pointee, int ptr_layers) : type(SALT_TYPE_PTR), pointee(pointee), ptr_layers(ptr_layers) {}
 	TypeInstance(const salt::Type* type, const salt::Type* pointee, int ptr_layers) : type(type), pointee(pointee), ptr_layers(ptr_layers) {}
+	TypeInstance(const Token& tok);
 	TypeInstance() : type(nullptr), pointee(nullptr), ptr_layers(0) {}
 	// operator const salt::Type*() const { return type; }
 	operator bool() const { return !!type; }

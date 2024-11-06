@@ -52,6 +52,7 @@ public:
     virtual bool is_deref() const               { return false; }
     virtual bool is_call() const                { return false; }
     virtual bool is_if() const                  { return false; }
+    virtual bool is_new_variable() const        { return false; }
     ReturnAST* to_return();         // convert this to return expr if possible
     ValExprAST* to_val();           // convert this to val expr if possible
     VariableExprAST* to_variable(); // convert this to variable expr if possible
@@ -212,6 +213,16 @@ public:
     ReturnAST(const Token& tok, Expression expr);
     virtual bool is_return() const override { return true; }
     llvm::Value* code_gen() override;
+};
+
+class NewVariableAST : public ExprAST {
+protected:
+    std::unique_ptr<VariableExprAST> var_;
+    Expression value_;
+public:
+    virtual bool is_new_variable() const override { return true; }
+    llvm::Value* code_gen() override;
+    NewVariableAST(const Token& op, std::unique_ptr<VariableExprAST> var, Expression value);
 };
 
 namespace salt {

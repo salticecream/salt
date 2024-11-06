@@ -1,6 +1,7 @@
 #include "types.h"
 #include "irgenerator.h"
 #include "frontendllvm.h"
+#include "tokens.h"
 
 std::unordered_map<std::string, const salt::Type*> salt::all_types = {};
 
@@ -116,4 +117,24 @@ bool TypeInstance::operator==(const TypeInstance& other) const {
 		type == other.type &&
 		pointee == other.pointee &&
 		ptr_layers == other.ptr_layers;
+}
+
+TypeInstance::TypeInstance(const Token& tok) {
+	const salt::Type* type_or_pointee = salt::all_types[tok.data()];
+	if (!type_or_pointee) {
+		*this = SALT_TYPE_ERROR;
+		return;
+	}
+
+	this->ptr_layers = tok.count();
+	
+	if (this->ptr_layers) {
+		this->type = SALT_TYPE_PTR;
+		this->pointee = type_or_pointee;
+	}
+	else {
+		this->type = type_or_pointee;
+		this->pointee = nullptr;
+	}
+
 }

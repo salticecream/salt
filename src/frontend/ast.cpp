@@ -219,6 +219,13 @@ ReturnAST::ReturnAST(const Token& tok, Expression expr) : return_val(std::move(e
     this->expected_return_type = SALT_TYPE_RETURN;
 }
 
+NewVariableAST::NewVariableAST(const Token& op, std::unique_ptr<VariableExprAST> var, Expression value) :
+    var_(std::move(var)), value_(std::move(value)) {
+    this->line_ = op.line();
+    this->col_ = op.col();
+    this->ti_ = SALT_TYPE_RETURN;
+}
+
 
 
 ReturnAST*          ExprAST::to_return()    { return is_return()    ? static_cast<ReturnAST*>(this)         : nullptr; }
@@ -301,6 +308,27 @@ Value* VariableExprAST::code_gen() {
 
     return gen->builder->CreateLoad(alloca_inst->getAllocatedType(), alloca_inst, this->name().c_str());
 
+}
+
+Value* NewVariableAST::code_gen() {
+    IRGenerator* gen = IRGenerator::get();
+    llvm::Type* llvm_type = const_cast<llvm::Type*>(var_->type()->get());
+    // allocate the mem...
+    llvm::AllocaInst* alloca_inst = gen->builder->CreateAlloca(llvm_type, nullptr, var_->name());
+    llvm::AllocaInst*& existing_inst = gen->named_values[var_->name()];
+    if (existing_inst)
+        print_error(f_string("%d:%d: variable %s already exists", var_->line(), var_->col(), var_->name()));
+    existing_inst = alloca_inst;
+
+    // and set it.
+    llvm::Value* right = value_->code_gen();
+    if (!right) {
+        right = llvm::PoisonValue::get(llvm_type);
+        print_error(f_string("%d:%d: bad value for assignment", value_->line(), value_->col()));
+    }
+    
+    gen->builder->CreateStore(right, alloca_inst);
+    return nullptr;
 }
 
 Value* TypeExprAST::code_gen() {

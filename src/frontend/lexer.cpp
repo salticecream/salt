@@ -422,7 +422,7 @@ Result<Token> Lexer::next_token() {
                 lexer_line++;
             }
             if (ch_str == EOF)
-                salt::print_fatal("string literal terminated with EOF");
+                salt::print_fatal("string or char literal terminated with EOF");
             if (ch_str == end_char) {
                 std::string string_to_return = cur_str;
                 cur_str.clear();
