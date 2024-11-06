@@ -41,12 +41,23 @@ static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*
 
     const char* cpu_type = "generic";
     const char* features = "";
-    llvm::TargetOptions opt;
+    llvm::TargetOptions opt{};
     llvm::TargetMachine* target_machine = target->createTargetMachine(target_triple, cpu_type, features, opt, llvm::Reloc::PIC_);
     
     IRGenerator* gen = IRGenerator::get();
     gen->mod->setDataLayout(target_machine->createDataLayout());
     gen->mod->setTargetTriple(target_triple);
+    gen->legacy_fn_pass_mgr->doInitialization();
+
+    // optimishimishimizations
+
+    // for (auto& func : gen->mod->functions())
+    //     gen->fn_pass_mgr->run(func, *gen->fn_analysis_mgr);
+
+    for (auto& func : gen->mod->functions())
+        gen->legacy_fn_pass_mgr->run(func);
+
+
 
     std::string output_file = "__SaltOutputObjectTmp";
     output_file += std::to_string(++files_compiled);
@@ -183,7 +194,11 @@ int main(int argc, const char** argv) {
         if (!salt::main_function_found)
             salt::print_fatal("no main function found");
 
-        return link_all();
+        int main_res = EXIT_FAILURE;
+        if (!any_compile_error_in_any_file)
+            main_res = link_all();
+
+        return main_res;
         
     // Exception handling
     } catch (const std::exception& e) {
@@ -216,6 +231,7 @@ static int link_all() {
     else
         command_to_run += "/nodefaultlib ";
 
+    salt::dboutv << "Linker command: " << command_to_run << '\n';
     int res = std::system(command_to_run.c_str());
 
     //remember to clean up by removing the tmp files we made

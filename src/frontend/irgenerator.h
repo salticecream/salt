@@ -34,7 +34,7 @@ public:
 
 	// Keeps track of all named values.
 	/// @todo: add scope (std::map of (Scope and std::map of std::string and llvm::Value*)) or similar)
-	std::map<std::string, llvm::Value*> named_values;
+	std::map<std::string, llvm::AllocaInst*> named_values;
 
 	std::map<std::string, llvm::Constant*> named_strings;
 
@@ -44,6 +44,7 @@ public:
 	// For optimization purposes
 	std::unique_ptr<llvm::LoopAnalysisManager> loop_analysis_mgr;
 	std::unique_ptr<llvm::FunctionPassManager> fn_pass_mgr;
+	std::unique_ptr<llvm::legacy::FunctionPassManager> legacy_fn_pass_mgr;
 	std::unique_ptr<llvm::FunctionAnalysisManager> fn_analysis_mgr;
 	std::unique_ptr<llvm::CGSCCAnalysisManager> cgscc_analysis_mgr; // call graph strongly connected component
 	std::unique_ptr<llvm::ModuleAnalysisManager> module_analysis_mgr;

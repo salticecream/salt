@@ -110,7 +110,6 @@ int Lexer::next_char() {
         res = stream_->get();
     else {
         res = 0;
-        any_compile_error_occured = true;
         salt::print_fatal("bad LexerInputMode");
     }
     if (res == EOF)
@@ -181,6 +180,8 @@ Token Lexer::end_token() {
                 return Token(TOK_COMMA);
             case '.':
                 return Token(TOK_DOT);
+            case '^':
+                return Token(TOK_CARAT);
             case '#':
                 this->state_ = LEXER_STATE_LINE_COMMENT;
                 return TOK_NONE;
@@ -381,10 +382,10 @@ Result<Token> Lexer::next_token() {
             // If not, throw an error.
             if (!is_allowed(ch) && ch != EOF) {
                 void(end_token()); // Discard the current token and just move forward
-                any_compile_error_occured = true;
-                return BadCharException(std::to_string(this->line()) + ':'
+                salt::print_error(std::to_string(this->line()) + ':'
                     + std::to_string(this->col()) + ":" + " Invalid char: `" + ch + '`'
-                    + "\nASCII: " + std::to_string(int(ch)));
+                    + ", ASCII: " + std::to_string(int(ch)));
+                return TOK_NONE;
             }
 
             // Add the char to the current string, since it's allowed.
@@ -467,7 +468,6 @@ std::vector<Token>& Lexer::tokenize(const char* str) {
     Lexer* me = Lexer::get();
 
     if (this != me) {
-        any_compile_error_occured = true;
         salt::print_fatal(salt::f_string("Wrong address for lexer.\nThis: %p\n Lexer::get(): %p", this, me).c_str());
     }
     
@@ -684,6 +684,9 @@ std::vector<Token>& Lexer::tokenize(const char* str) {
                     break;
                 case TOK_RIGHT_SHIFT:
                     last = Token(TOK_RIGHT_SHIFT_ASSIGN);
+                    break;
+                case TOK_CARAT:
+                    last = Token(TOK_XOR_ASSIGN);
                     break;
                 default:
                     vec.push_back(next);

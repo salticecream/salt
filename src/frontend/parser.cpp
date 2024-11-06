@@ -864,7 +864,6 @@ ParserReturnType Parser::parse() {
             }
 
             if (!res) {
-                any_compile_error_occured = true;
                 print_error(res.unwrap_err().what());
             }
         }

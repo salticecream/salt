@@ -277,17 +277,16 @@ Value* VariableExprAST::code_gen() {
     }
     salt::dboutv << f_string("I am a variable of type %s and my name is %s\n", this->type()->name, this->name());
 
-    Value* res = gen->named_values[this->name()];
+    llvm::AllocaInst* alloca_inst = gen->named_values[this->name()];
     
-    if (!res) {
-        any_compile_error_occured = true;
+    if (!alloca_inst) {
         print_fatal(f_string("Unknown variable name: %s", this->name()));
         return nullptr; // Result(IRGeneratorException(this->line(), this->col(), "Unknown variable name: " + this->var_.name()));
     }
 
 
 
-    return res;
+    return gen->builder->CreateLoad(alloca_inst->getAllocatedType(), alloca_inst, this->name().c_str());
 }
 
 Value* TypeExprAST::code_gen() {
@@ -1037,6 +1036,8 @@ Function* FunctionAST::code_gen() {
         return f;
     }
 
+
+
     // Tell the LLVM builder to generate code inside this block (the function).
     // Control flow comes later.
     BasicBlock* bb = BasicBlock::Create(*gen->context, "entry", f);
@@ -1046,10 +1047,15 @@ Function* FunctionAST::code_gen() {
     // Not the best way of doing it, but for simplicity this is the way it's going to be done
     gen->named_values.clear();
 
-    // Now we populate named_values with the args that are in scope.
+    // begin generation of function code by stack allocating the arguments
+    // ..which are already stack allocated xD?
+    IRBuilder<> temp_builder = IRBuilder<>(&f->getEntryBlock(), f->getEntryBlock().begin());
     for (auto& arg : f->args()) {
-        gen->named_values[std::string(arg.getName())] = &arg;
+        AllocaInst* llvm_alloca = temp_builder.CreateAlloca(arg.getType(), nullptr, arg.getName());
+        gen->builder->CreateStore(&arg, llvm_alloca);
+        gen->named_values[std::string(arg.getName())] = llvm_alloca;
         salt::dbout << "arg.getName(): " << std::string(arg.getName()) << std::endl;
+        salt::dboutv << "allocaInst->getName(): " << std::string(llvm_alloca->getName()) << std::endl;
     }
 
     salt::dbout << "created declaration" << std::endl;

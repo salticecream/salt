@@ -3,9 +3,9 @@
 
 // Data
 const char ALLOWED_CHARS[] = 
-"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"@#%&/()=[]<>+-*,.;:|_ \n\t\r'";
-const int ALLOWED_CHARS_LEN = sizeof(ALLOWED_CHARS) - 1;
-const int ALLOWED_SYMBOLS_START = 62;
+"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"@#%&/()=[]<>+-*,.;:|_^ \n\t\r'";
+constexpr int ALLOWED_CHARS_LEN = sizeof(ALLOWED_CHARS) - 1;
+constexpr int ALLOWED_SYMBOLS_START = 62;
 
 
 // Functions

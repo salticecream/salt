@@ -32,13 +32,14 @@ IRGenerator::IRGenerator() : context(global_context) {
 	// For code generation
 	this->builder = std::make_unique<llvm::IRBuilder<>>(*this->context);
 	this->mod = std::make_unique<llvm::Module>("salt", *this->context);
-	this->named_values = std::map<std::string, llvm::Value*>();
+	this->named_values = std::map<std::string, llvm::AllocaInst*>();
 	this->named_strings = {};
 	this->named_functions = {};
 
 
 	// For optimization and whatnot
 	loop_analysis_mgr = std::make_unique<llvm::LoopAnalysisManager>();
+	legacy_fn_pass_mgr = std::make_unique<llvm::legacy::FunctionPassManager>(this->mod.get());
 	fn_pass_mgr = std::make_unique<llvm::FunctionPassManager>();
 	fn_analysis_mgr = std::make_unique<llvm::FunctionAnalysisManager>();
 	cgscc_analysis_mgr = std::make_unique<llvm::CGSCCAnalysisManager>();
@@ -48,10 +49,16 @@ IRGenerator::IRGenerator() : context(global_context) {
 	std_instrumentations->registerCallbacks(*pass_instrumentation_callbacks, module_analysis_mgr.get());
 
 	// Add optimization passes
-	fn_pass_mgr->addPass(llvm::InstCombinePass());	// optimize calculations
-	fn_pass_mgr->addPass(llvm::ReassociatePass());	// reassociate expressions
-	fn_pass_mgr->addPass(llvm::GVNPass());			// eliminate common subexpressions so they only need to be calculated once
-	fn_pass_mgr->addPass(llvm::SimplifyCFGPass());	// simplify ctrl flow graph by, for example, deleting unreachable code
+	fn_pass_mgr->addPass(llvm::InstCombinePass());							// optimize calculations
+	fn_pass_mgr->addPass(llvm::ReassociatePass());							// reassociate expressions
+	fn_pass_mgr->addPass(llvm::GVNPass());									// eliminate common subexpressions so they only need to be calculated once
+	fn_pass_mgr->addPass(llvm::SimplifyCFGPass());							// simplify ctrl flow graph by, for example, deleting unreachable code
+	llvm::FunctionPass* pass1 = llvm::createPromoteMemoryToRegisterPass();	// heavily reduce stack traffic, since everything is now a load or a store
+	llvm::FunctionPass* pass2 = llvm::createInstructionCombiningPass();		// ???
+	llvm::FunctionPass* pass3 = llvm::createReassociatePass();				// self explanatory i guess
+	legacy_fn_pass_mgr->add(pass1);
+	legacy_fn_pass_mgr->add(pass2);
+	legacy_fn_pass_mgr->add(pass3);
 
 	// Register analysis passes that are used by these transform passes
 	pass_builder.registerModuleAnalyses(*module_analysis_mgr);
