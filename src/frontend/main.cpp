@@ -21,7 +21,8 @@ std::string output_name = "a";
 static bool user_chosen_output_name = false;
 const char* PRELUDE_FILE = "prelude.sl";
 static llvm::OptimizationLevel optimization_level = llvm::OptimizationLevel::O0;
-
+std::vector<std::string> salt::file_names = { PRELUDE_FILE };
+int salt::current_file_name_index = 0;
 
 // Only for windows, only to .o
 static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*/) {
@@ -160,17 +161,22 @@ int main(int argc, const char** argv) {
     salt::fill_types();
 
     try {
+        int next_file_name_index = 0;
         for (const char* input_file : input_files) {
-            // Tokenize the file
+            next_file_name_index++;
+            salt::file_names.push_back(input_file);
+            // read the prelude, which consists of function headers
             any_compile_error_occured = false;
-
+            salt::current_file_name_index = 0;
             Lexer* lexer = Lexer::get();
             std::vector<Token> vec = lexer->tokenize(PRELUDE_FILE);
             while (vec.size() && vec.back().val() == TOK_EOF)
                 vec.pop_back();
             vec.push_back(TOK_EOL); vec.push_back(TOK_EOL);
-
             Lexer::destroy();
+
+            // read the current file
+            salt::current_file_name_index = next_file_name_index;
             lexer = Lexer::get();
             std::vector<Token> input_vec = lexer->tokenize(input_file);
             vec.insert(vec.end(), std::make_move_iterator(input_vec.begin()), std::make_move_iterator(input_vec.end()));

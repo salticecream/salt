@@ -13,6 +13,7 @@ namespace BinaryOperator {
 
         BINOP_MAP[TOK_MUL] = millions(21);
         BINOP_MAP[TOK_DIV] = BINOP_MAP[TOK_MUL];
+        BINOP_MAP[TOK_MODULO] = BINOP_MAP[TOK_MUL];
 
         BINOP_MAP[TOK_ADD] = millions(20);
         BINOP_MAP[TOK_SUB] = BINOP_MAP[TOK_ADD];

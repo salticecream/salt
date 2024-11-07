@@ -839,7 +839,7 @@ Value* BinaryExprAST::code_gen() {
     }
         break;
 
-    case TOK_CARAT:
+    case TOK_CARAT: // bitwise xor
         switch (bin_type) {
         case BIN_TYPE_INT:
         case BIN_TYPE_UINT:
@@ -847,6 +847,43 @@ Value* BinaryExprAST::code_gen() {
         default:
             RET_POISON_WITH_ERROR(new_type);
             break;
+        }
+        break;
+
+    case TOK_AMPERSAND: // bitwise and
+        switch (bin_type) {
+        case BIN_TYPE_INT:
+        case BIN_TYPE_UINT:
+            return gen->builder->CreateAnd(left, right, "bitandtmp");
+        default:
+            RET_POISON_WITH_ERROR(new_type);
+            break;
+        }
+        break;
+
+    case TOK_VERTICAL_BAR: // bitwise or
+        switch (bin_type) {
+        case BIN_TYPE_INT:
+        case BIN_TYPE_UINT:
+            return gen->builder->CreateOr(left, right, "bitortmp");
+        default:
+            RET_POISON_WITH_ERROR(new_type);
+            break;
+        }
+        break;
+
+    case TOK_MODULO: // actually should be remainder
+        switch (bin_type) {
+        case BIN_TYPE_INT:
+            return gen->builder->CreateSRem(left, right, "sremtmp");
+        case BIN_TYPE_UINT:
+            return gen->builder->CreateURem(left, right, "uremtmp");
+        case BIN_TYPE_FLOAT:
+            if (salt::no_std)
+                print_warning(f_string("%d:%d: floating-point remainder with no_std flag", this->line(), this->col()));
+            return gen->builder->CreateFRem(left, right, "fremtmp");
+        default:
+            RET_POISON_WITH_ERROR(new_type);
         }
         break;
 
@@ -958,7 +995,7 @@ Value* IfExprAST::code_gen() {
     true_expr_val = convert_implicit(true_expr_val, new_type->get(), new_type->is_signed);
     if (!true_expr_val) {
         true_expr_val = PoisonValue::get(const_cast<llvm::Type*>(new_type->get()));
-        print_error(f_string("%d:%d: bad type for variable", true_expr_->line(), true_expr_->col()));
+        print_error(f_string("%d:%d: both arms of an if-expression must be of the same type", true_expr_->line(), true_expr_->col()));
     }
     gen->builder->CreateBr(merge_bb); // make code to "return" from the if expression at the end of this block
 
