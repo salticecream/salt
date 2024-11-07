@@ -397,6 +397,34 @@ Result<Expression> Parser::parse_char() {
     return std::make_unique<ValExprAST>(ch, int64_t(val), SALT_TYPE_CHAR);
 }
 
+Result<Expression> Parser::parse_neg_expr() {
+    const Token& minus_sign = current();
+    if (minus_sign.val() != TOK_SUB)
+        return ParserException(minus_sign, "expected -");
+
+    this->next();
+    Result<Expression> expr_res = parse_primary();
+    Expression expr = nullptr;
+    if (expr_res)
+        expr = expr_res.unwrap();
+    else
+        return expr_res.unwrap_err();
+
+    const salt::Type* type_of_minus_one = expr->type();
+    if (!type_of_minus_one->is_numeric())
+        return ParserException(minus_sign, f_string("cannot negate expression of type %s", expr->type_instance().str().c_str()).c_str());
+
+    std::unique_ptr<ValExprAST> minus_one = nullptr;
+    if (type_of_minus_one->is_float())
+        minus_one = std::make_unique<ValExprAST>(minus_sign, double(-1.0), type_of_minus_one);
+    else
+        minus_one = std::make_unique<ValExprAST>(minus_sign, int64_t(-1), type_of_minus_one);
+
+    Token mul_token = Token(TOK_MUL, "", 0, minus_sign.line(), minus_sign.col());
+
+    return std::make_unique<BinaryExprAST>(mul_token, std::move(minus_one), std::move(expr));
+}
+
 Result<Expression> Parser::parse_primary() {
     Token_e val = vec[current_idx].val();
     switch (val) {
@@ -405,8 +433,9 @@ Result<Expression> Parser::parse_primary() {
     case TOK_IDENT:
         return parse_ident_expr();
     case TOK_NUMBER:
-    case TOK_SUB:
         return parse_number_expr();
+    case TOK_SUB:
+        return parse_neg_expr();
     case TOK_CHAR: // not the char type, but a char like 'A'
         return parse_char();
     case TOK_STRING:

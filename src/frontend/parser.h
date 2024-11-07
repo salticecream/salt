@@ -48,6 +48,7 @@ private:
     salt::Result<Expression> parse_deref();
     salt::Result<Expression> parse_new_variable();
     salt::Result<Expression> parse_char();
+    salt::Result<Expression> parse_neg_expr();
     salt::Result<std::unique_ptr<DeclarationAST>> parse_declaration();
     salt::Result<std::unique_ptr<FunctionAST>> parse_function();
     salt::Result<std::unique_ptr<DeclarationAST>> parse_extern();
