@@ -58,8 +58,10 @@ static void compile_to_object(const std::vector<CompilerFlag>& /*compiler_flags*
     // for (auto& func : gen->mod->functions())
     //    gen->legacy_fn_pass_mgr->run(func);
 
-    llvm::ModulePassManager module_pass_mgr = gen->pass_builder->buildPerModuleDefaultPipeline(optimization_level);
-    module_pass_mgr.run(*gen->mod, *gen->module_analysis_mgr);
+    if (optimization_level != llvm::OptimizationLevel::O0) {
+        llvm::ModulePassManager module_pass_mgr = gen->pass_builder->buildPerModuleDefaultPipeline(optimization_level);
+        module_pass_mgr.run(*gen->mod, *gen->module_analysis_mgr);
+    }
 
 
     std::string output_file = "__SaltOutputObjectTmp";

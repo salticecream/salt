@@ -244,8 +244,8 @@ Result<Expression> Parser::parse_ident_expr() {
 
     
 
-    // Check if this is NOT a function call, if so, return the identifier as its own expression
-    if (vec[current_idx].val() != TOK_LEFT_BRACKET) {
+    // Check if this is NOT a function call or ends with [], if so, return the identifier as its own expression
+    if (vec[current_idx].val() != TOK_LEFT_BRACKET && vec[current_idx].val() != TOK_LEFT_SQUARE) {
 
         // Get the type of that identifier
         TypeInstance ti = named_values[ident_name];
@@ -254,6 +254,27 @@ Result<Expression> Parser::parse_ident_expr() {
 
         salt::dboutv << f_string("Making variable with name %s and type `%s`\n", vec[ident_idx].data(), named_values[ident_name].str());
         return std::make_unique<VariableExprAST>(vec[ident_idx], ti);
+    }
+
+    // check if this identifier has [] brackets, if so we are indexing or dereferencing it
+    // only type that has a reasonable [] operator is ptr type, except void*
+    if (current().val() == TOK_LEFT_SQUARE) {
+        TODO();
+        const Token& bracket_tok = current();
+        this->next();
+        Result<Expression> index_res = parse_expression();
+        Expression index_expr = nullptr;
+        if (index_res)
+            index_expr = index_res.unwrap();
+        else
+            return index_res.unwrap_err();
+
+        if (current().val() == TOK_RIGHT_SQUARE)
+            this->next();
+        else
+            return ParserException(current(), "expected ]");
+
+        std::unique_ptr<VariableExprAST> var_to_deref = nullptr;
     }
     
 

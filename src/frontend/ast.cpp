@@ -315,6 +315,13 @@ Value* VariableExprAST::code_gen() {
 Value* NewVariableAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
     llvm::Type* llvm_type = const_cast<llvm::Type*>(var_->type()->get());
+
+    // check for void
+    if (llvm_type == SALT_TYPE_VOID->get()) {
+        print_error(f_string("%d:%d: cannot create variable of void type", var_->line(), var_->col()));
+        return nullptr;
+    }
+
     // allocate the mem...
     llvm::AllocaInst* alloca_inst = gen->builder->CreateAlloca(llvm_type, nullptr, var_->name());
     llvm::AllocaInst*& existing_inst = gen->named_values[var_->name()];
@@ -327,6 +334,13 @@ Value* NewVariableAST::code_gen() {
     if (!right) {
         right = llvm::PoisonValue::get(llvm_type);
         print_error(f_string("%d:%d: bad value for assignment", value_->line(), value_->col()));
+    }
+
+    // Make it so that we can't stack-allocate a float and then put a double there (and then crash because the double is too big.)
+    right = convert_implicit(right, llvm_type, value_->type()->is_signed);
+    if (!right) {
+        right = llvm::PoisonValue::get(llvm_type);
+        print_error(f_string("%d:%d: bad type for assignment", value_->line(), value_->col()));
     }
     
     gen->builder->CreateStore(right, alloca_inst);
