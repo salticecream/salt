@@ -742,13 +742,13 @@ Value* BinaryExprAST::code_gen() {
         switch (bin_type) {
         case BIN_TYPE_INT:
         case BIN_TYPE_UINT:
-            return gen->builder->CreateICmpNE(left, right, "cmptmp");
+            return gen->builder->CreateICmpNE(left, right, "ncmptmp");
         case BIN_TYPE_FLOAT:
-            return gen->builder->CreateFCmpONE(left, right, "cmptmp");
+            return gen->builder->CreateFCmpUNE(left, right, "ncmptmp"); // unordered here. NaN != X is true for all X
         case BIN_TYPE_PTR: {
             Value* left_ptr_to_int = gen->builder->CreatePtrToInt(left, const_cast<llvm::Type*>(SALT_TYPE_USIZE->get()));
             Value* right_ptr_to_int = gen->builder->CreatePtrToInt(right, const_cast<llvm::Type*>(SALT_TYPE_USIZE->get()));
-            return gen->builder->CreateICmpNE(left_ptr_to_int, right_ptr_to_int, "cmptmp");
+            return gen->builder->CreateICmpNE(left_ptr_to_int, right_ptr_to_int, "ncmptmp");
         }
         default:
             RET_POISON_WITH_ERROR(new_type);
