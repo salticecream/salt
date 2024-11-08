@@ -238,8 +238,8 @@ std::string Token::str() const {
         return "ELSE";
     case TOK_THEN:
         return "THEN";
-    case TOK_REPEAT:
-        return "REPEAT";
+    case TOK_WHILE:
+        return "WHILE";
     case TOK_RETURN:
         return "RETURN";
     case TOK_AND:

@@ -244,9 +244,9 @@ Token Lexer::end_token() {
     } else if (string_res == "then") {
         lexer->current_string = cur_str.back();
         return Token(TOK_THEN);
-    } else if (string_res == "repeat") {
+    } else if (string_res == "while") {
         lexer->current_string = cur_str.back();
-        return Token(TOK_REPEAT);
+        return Token(TOK_WHILE);
 
     } else if (string_res == "return") {
         lexer->current_string = cur_str.back();

@@ -99,8 +99,9 @@ VariableExprAST::VariableExprAST(const Token& tok, TypeInstance ti) : name_(tok.
     this->ti_ = ti;
     if (!ti_)
         ti_ = SALT_TYPE_ERROR;
-    if (tok.val() != TOK_IDENT)
-        print_error(f_string("Cannot create variable from token %s with data `%s`, expected identifier (TOK_IDENT)", tok.str().c_str(), tok.data()));
+    if (tok.val() != TOK_IDENT) {
+        print_error_at(this, f_string("Cannot create variable from token %s with data `%s`, expected identifier (TOK_IDENT)", tok.str().c_str(), tok.data().c_str()));
+    }
 }
 
 const std::string& VariableExprAST::name() const {
@@ -304,8 +305,8 @@ Value* VariableExprAST::code_gen() {
     llvm::AllocaInst*& alloca_inst = gen->named_values[this->name()];
     
     if (!alloca_inst) {
-        print_error(f_string("variable %s does not exist", this->name()));
-        alloca_inst = gen->builder->CreateAlloca(llvm::Type::getVoidTy(*gen->context), nullptr, this->name());
+        print_error_at(this, f_string("variable %s does not exist", this->name()));
+        alloca_inst = gen->builder->CreateAlloca(llvm::Type::getInt8Ty(*gen->context), nullptr, this->name());
     }
 
     return gen->builder->CreateLoad(alloca_inst->getAllocatedType(), alloca_inst, this->name().c_str());

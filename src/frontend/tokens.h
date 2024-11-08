@@ -114,7 +114,7 @@ enum Token_e {
     TOK_IF,
     TOK_ELSE,
     TOK_THEN,
-    TOK_REPEAT,
+    TOK_WHILE,
     TOK_RETURN,
 
     /* To be implemented much later

@@ -20,6 +20,7 @@ private:
     int current_idx;
     int current_scope;
     bool line_just_started;
+    bool is_suffering_from_syntax_error;
     static Parser* instance; // Singleton just like Lexer.
     const std::vector<Token>& vec;
     const Token& current() const;
@@ -42,7 +43,7 @@ private:
     salt::Result<Expression> parse_expression();
     salt::Result<Expression> parse_binop_rhs(int prec, Expression lhs);
     salt::Result<Expression> parse_if_expr();
-    salt::Result<Expression> parse_repeat_expr();
+    salt::Result<Expression> parse_while_expr();
     salt::Result<Expression> parse_reserved_constant();
     salt::Result<Expression> parse_return();
     salt::Result<Expression> parse_deref();

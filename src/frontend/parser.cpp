@@ -30,6 +30,8 @@ Parser::Parser(const std::vector<Token>& vec_ref) : vec(vec_ref), is_parsing_ext
     this->current_idx = 0;
     this->current_scope = 0;
     this->line_just_started = true;
+    this->is_suffering_from_syntax_error = false;
+    this->is_parsing_extern = false; // dontuse
 }
 
 // Helper functions for Parser::parse().
@@ -446,8 +448,8 @@ Result<Expression> Parser::parse_primary() {
         return parse_paren_expr();
     case TOK_IF:
         return parse_if_expr();
-    case TOK_REPEAT:
-        return parse_repeat_expr();
+    case TOK_WHILE:
+        return parse_while_expr();
     case TOK_NULL:
     case TOK_INF:
     case TOK_NAN:
@@ -822,23 +824,29 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_top_level_expr() {
     return Exception("very very very bad logic error");
 }
 
-Result<Expression> Parser::parse_repeat_expr() {
-    if (vec[current_idx].val() != TOK_REPEAT)
-        return ParserException(vec[current_idx], "expected repeat keyword");
-    int rep_line = vec[current_idx].line();
-    int rep_col = vec[current_idx].col();
+Result<Expression> Parser::parse_while_expr() {
+    TODO();
+
+
+    if (vec[current_idx].val() != TOK_WHILE)
+        return ParserException(vec[current_idx], "expected while keyword");
+
+    const Token& while_token = current();
     this->next();
 
 
     int index_before_parse = current_idx;
-    Expression success_ret_value = nullptr;
+    Expression cond = nullptr;
     ParserException fail_ret_value = ParserException(vec[index_before_parse], "Uninitialized parser exception");
 
     Result expr_res = parse_expression();
     if (expr_res)
-        success_ret_value = expr_res.unwrap();
-    else
+        cond = expr_res.unwrap();
+    else {
+        any_compile_error_occured = true;
         fail_ret_value = ParserException(vec[index_before_parse], expr_res.unwrap_err().what());
+        cond = std::make_unique<ValExprAST>(while_token, int64_t(0), SALT_TYPE_LONG);
+    }
 
 
     // Try to skip the following colon.
@@ -846,13 +854,13 @@ Result<Expression> Parser::parse_repeat_expr() {
     // If there is no colon following the expression, but parsing did not fail,
     // that's still an error. Return that instead.
     // If there is a colon after the expression, keep going and try to grab the following expression.
-
+    /*
     if (vec[current_idx].val() == TOK_COLON) {
         this->next();
         if (expr_res) {
             if (Result repeat_body_res = parse_expression()) {
                 Expression repeat_body = repeat_body_res.unwrap();
-                return std::make_unique<RepeatAST>(
+                return std::make_unique<WhileAST>(
                     rep_line, rep_col, std::move(success_ret_value), std::move(repeat_body)
                 );
             }
@@ -868,10 +876,13 @@ Result<Expression> Parser::parse_repeat_expr() {
         else
             return fail_ret_value;
     }
+    */
+    TODO();
 }
 
 Result<void> Parser::handle_extern() {
     if (Result<std::unique_ptr<DeclarationAST>> decl_res = parse_extern()) {
+        is_suffering_from_syntax_error = false;
         std::unique_ptr<DeclarationAST> decl = decl_res.unwrap();
         llvm::Function* generated_ir = decl->code_gen();
         salt::dbout << "Successfully parsed declaration ";
@@ -893,6 +904,7 @@ Result<void> Parser::handle_extern() {
 
 Result<void> Parser::handle_top_level_expr() {
     if (Result<std::unique_ptr<FunctionAST>> fn_res = parse_top_level_expr()) {
+        is_suffering_from_syntax_error = false;
         std::unique_ptr<FunctionAST> func = fn_res.unwrap();
         llvm::Function* generated_ir = func->code_gen();
         salt::dbout << "Successfully parsed top level expression ";
@@ -913,6 +925,7 @@ Result<void> Parser::handle_top_level_expr() {
 
 Result<void> Parser::handle_function() {
     if (Result<std::unique_ptr<FunctionAST>> fn_res = parse_function()) {
+        is_suffering_from_syntax_error = false;
         std::unique_ptr<FunctionAST> func = fn_res.unwrap();
         llvm::Function* generated_ir = func->code_gen();
         salt::dbout << "Successfully parsed function ";
@@ -971,7 +984,8 @@ ParserReturnType Parser::parse() {
                 break;
             }
 
-            if (!res) {
+            if (!res && !is_suffering_from_syntax_error) {
+                is_suffering_from_syntax_error = true;
                 print_error(res.unwrap_err().what());
             }
         }
