@@ -2,6 +2,8 @@
 #include <limits.h>
 #include <cstdarg>
 #include "frontend/miniregex.h"
+#include "frontend/tokens.h"
+#include "frontend/ast.h"
 
 int salt::WARNING_LEVEL = 255;
 using namespace salt;
@@ -146,11 +148,40 @@ void salt::print_warning(const std::string& str, int min_warning_level) {
 	std::cout << str << std::endl;
 }
 
+void salt::print_warning_at(const Token& tok, const std::string& str, int min_warning_level) {
+	if (min_warning_level > salt::WARNING_LEVEL)
+		return;
+
+	print_colored("warning: ", Color::YELLOW);
+	std::cout << salt::file_names[current_file_name_index] << ':' << tok.line() << ':' << tok.col() << ": " << str << std::endl;
+}
+
+void salt::print_warning_at(ExprAST* expr, const std::string& str, int min_warning_level) {
+	if (min_warning_level > salt::WARNING_LEVEL)
+		return;
+
+	print_colored("warning: ", Color::YELLOW);
+	std::cout << salt::file_names[current_file_name_index] << ':' << expr->line() << ':' << expr->col() << ": " << str << std::endl;
+}
+
 void salt::print_error(const std::string& str) {
 	any_compile_error_occured = true;
 	print_colored("error: ", Color::LIGHT_RED);
 	std::cout << str << std::endl;
 }
+
+void salt::print_error_at(const Token& tok, const std::string& str) {
+	any_compile_error_occured = true;
+	print_colored("error: ", Color::LIGHT_RED);
+	std::cout << salt::file_names[current_file_name_index] << ':' << tok.line() << ':' << tok.col() << ": " << str << std::endl;
+}
+
+void salt::print_error_at(ExprAST* expr, const std::string& str) {
+	any_compile_error_occured = true;
+	print_colored("error: ", Color::LIGHT_RED);
+	std::cout << salt::file_names[current_file_name_index] << ':' << expr->line() << ':' << expr->col() << ": " << str << std::endl;
+}
+
 
 [[noreturn]]
 void salt::print_fatal(const std::string& str, int exit_code) {
@@ -167,6 +198,7 @@ void salt::print_fatal(const char* str, int exit_code) {
 	std::puts(str);
 	std::exit(exit_code);
 }
+
 
 static uint64_t upow(uint64_t x, uint64_t y) {
 	uint64_t res = 1;

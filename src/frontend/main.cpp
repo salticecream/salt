@@ -203,7 +203,7 @@ int main(int argc, const char** argv) {
         if (!any_compile_error_in_any_file && salt::main_function_found)
             salt::dbout << salt::Color::GREEN << "\nCompilation success!\n" << salt::Color::WHITE;
 
-        if (!salt::main_function_found)
+        if (!salt::main_function_found && !salt::no_std)
             salt::print_fatal("no main function found");
 
         int main_res = EXIT_FAILURE;
@@ -241,7 +241,7 @@ static int link_all() {
     if (!salt::no_std)
         command_to_run += libraries;
     else
-        command_to_run += "/nodefaultlib ";
+        command_to_run += "/nodefaultlib /ENTRY:_start";
 
     salt::dboutv << "Linker command: " << command_to_run << '\n';
     int res = std::system(command_to_run.c_str());

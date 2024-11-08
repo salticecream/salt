@@ -373,7 +373,7 @@ Result<Expression> Parser::parse_new_variable() {
     if (rhs_res) {
         rhs = rhs_res.unwrap();
         if (!rhs->type() || rhs->type()->get() == SALT_TYPE_VOID->get())
-            return Exception(f_string("%d:%d: bad value for assignment", rhs->line(), rhs->col()));
+            return Exception(f_string("%s:%d:%d: bad value for assignment", salt::file_names[current_file_name_index].c_str(), rhs->line(), rhs->col()));
     }
     else
         return ParserException(current(), "expected expression");
@@ -988,7 +988,10 @@ ParserReturnType Parser::parse() {
 
 
 ParserException::ParserException(const Token& tok, const char* str) :
-    Exception((std::to_string(tok.line())
+    Exception(
+        salt::file_names[salt::current_file_name_index]
+        + ':'
+        + (std::to_string(tok.line())
         + ':'
         + std::to_string(tok.col())
         + ": found token "

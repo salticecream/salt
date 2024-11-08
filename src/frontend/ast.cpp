@@ -11,7 +11,7 @@
 } while (0)
 
 #define RET_POISON_WITH_ERROR_VAL(val) do {\
-    print_error(f_string("%d:%d: unsupported operation for `%s` type (line %d at function %s in compiler)", val->line(), val->col(), val->type()->name.c_str(), __LINE__, __FUNCTION__));\
+    print_error_at(val.get(), f_string("unsupported operation for `%s` type (line %d at function %s in compiler)", val->type()->name.c_str(), __LINE__, __FUNCTION__));\
     return get_poison_value(val->type());\
 } while (0)
 
@@ -318,7 +318,7 @@ Value* NewVariableAST::code_gen() {
 
     // check for void
     if (llvm_type == SALT_TYPE_VOID->get()) {
-        print_error(f_string("%d:%d: cannot create variable of void type", var_->line(), var_->col()));
+        print_error_at(var_.get(), "cannot create variable of void type");
         return nullptr;
     }
 
@@ -333,7 +333,7 @@ Value* NewVariableAST::code_gen() {
     llvm::Value* right = value_->code_gen();
     if (!right) {
         right = llvm::PoisonValue::get(llvm_type);
-        print_error(f_string("%d:%d: bad value for assignment", value_->line(), value_->col()));
+        print_error_at(value_.get(), "bad value for assignment!");
     }
 
     // Make it so that we can't stack-allocate a float and then put a double there (and then crash because the double is too big.)
@@ -1200,7 +1200,14 @@ Function* FunctionAST::code_gen() {
         }
 
     } else {
-        salt::dbout << "function " << this->decl()->name() << " does not have body" << std::endl;
+        print_warning(f_string("%s - %d:%d: %s does not end with a return instruction", salt::file_names[salt::current_file_name_index].c_str(), decl()->line(), decl()->col(), decl()->name().c_str()));
+        if (expected_salt_type.get() == SALT_TYPE_VOID->get()) {
+            gen->builder->CreateRetVoid();
+        }
+        else {
+            salt::dboutv << "Creating an extra poison return with type " << expected_salt_type.str() << '\n';
+            gen->builder->CreateRet(llvm::PoisonValue::get(expected_salt_type.get()));
+        }
     }
 
     std::string error_string;
@@ -1226,6 +1233,7 @@ Function* FunctionAST::code_gen() {
     salt::dbout << f_string("successfully created function %s\n", this->decl()->name().c_str());
 
     // every program needs a main function
+    /// @todo: add -e <fn> compiler flag, s.t. user can make <fn> the entry point
     if (f->getName() == "main")
         salt::main_function_found = true;
 
@@ -1364,6 +1372,8 @@ Value* salt::convert_implicit(llvm::Value* value, const llvm::Type* _type, bool 
                             print_warning("possible overflow when converting floating type to integer");
                         else if (constant_as_double <= -max_val_as_double)
                             print_warning("possible underflow when converting floating type to integer");
+                        else if (constant_as_double != constant_as_double)
+                            print_warning("converting NaN to integer will surely cause trouble");
                     }
                 }
                 return ret_val;

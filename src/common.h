@@ -8,6 +8,9 @@
 #include <cstdlib>
 #include <fstream>
 
+class Token;
+class ExprAST;
+
 #ifdef _WIN32
 #define NOMINMAX 1
 #define SALT_WINDOWS 1
@@ -121,14 +124,25 @@ namespace salt {
     };
 
     void print_colored(const std::string& str, const TextColor tc);
-    void print_warning(const std::string& warning, int min_warning_level = 0);
-    void print_error(const std::string& error);
 
+    void print_warning(const std::string& warning, int min_warning_level = 0);
+    void print_warning_at(const Token& tok, const std::string& warning, int min_warning_level = 0);
+    void print_warning_at(ExprAST* expr, const std::string& warning, int min_warning_level = 0);
+
+    void print_error(const std::string& error);
+    void print_error_at(const Token& tok, const std::string& error);
+    void print_error_at(ExprAST* expr, const std::string& error);
+
+
+    // No print_fatal_at, since print_fatal is also used in segfault handler
+    // we can't risk accessing any memory unnecessarily when we already segfaulted lol
     [[noreturn]]
     void print_fatal(const std::string& error, int exit_code = 1);
 
     [[noreturn]]
     void print_fatal(const char* error, int exit_code = 1);
+
+    
 
     /// @todo: maybe one day make a better Result class
     /* 
