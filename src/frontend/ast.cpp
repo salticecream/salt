@@ -896,7 +896,7 @@ Value* DerefExprAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
     if (type() != SALT_TYPE_VOID)
         return gen->builder->CreateLoad(const_cast<llvm::Type*>(this->type()->get()), this->expr_->code_gen(), "dereftmp");
-    print_error_at(this, f_string("cannot dereference %s", this->type_instance().str().c_str()));
+    print_error_at(this, f_string("cannot dereference %s", this->expr_->type_instance().str().c_str()));
     return nullptr;
 }
 
@@ -906,20 +906,18 @@ Value* CallExprAST::code_gen() {
 
     // Error handling: the function must exist, and be passed the correct number of arguments, and the arguments must be of the correct type.
     // Variadic functions will be added much later or possibly never.
-    if (!callee_fn)
-        print_fatal(IRGeneratorException(this->line(), this->col(), "no function exists named " + this->callee()));
-    size_t arg_size = args().size();
-    if (callee_fn->arg_size() != arg_size)
-        print_fatal(IRGeneratorException(this->line(), this->col(),
-            " Function named "
-            + this->callee()
-            + " takes "
-            + std::to_string(callee_fn->arg_size())
-            + " arguments, but "
-            + std::to_string(arg_size)
-            + " were provided")); 
+    if (!callee_fn) {
+        print_error_at(this, f_string("function %s does not exist", this->callee().c_str()));
+        return nullptr;
+    }
 
-    // Ok, this is a valid call. Populate the argument vector with the provided arguments.
+    size_t arg_size = args().size();
+    if (callee_fn->arg_size() != arg_size) {
+        print_error_at(this, f_string("function %s takes %d arguments, but %d were provided", this->callee().c_str(), callee_fn->arg_size(), arg_size));
+        return nullptr;
+    }
+
+    // Ok, this is a valid call (fn exists and correct # of args). Populate the argument vector with the provided arguments.
     // Make sure to try converting the arguments to the correct type.
     std::vector<Value*> argv; 
 
@@ -930,7 +928,7 @@ Value* CallExprAST::code_gen() {
         arg = convert_implicit(arg, const_cast<llvm::Type*>(itr->getType()), args_[i]->type()->is_signed);
         if (!arg) {
             failed = true;
-            print_error(f_string("Function %s was called with bad argument types", callee_fn->getName().str().c_str()));
+            print_error_at(this, f_string("function %s was called with bad argument types", callee_fn->getName().str().c_str()));
             arg = llvm::PoisonValue::get(const_cast<llvm::Type*>(itr->getType()));
         }
         i++;
@@ -939,8 +937,7 @@ Value* CallExprAST::code_gen() {
         
         
 
-    if (!argv.empty() && !argv.back())
-        print_fatal("argv.back() is nullptr in CallExprAST::code_gen()");
+    ASSERT(!(!argv.empty() && argv.back() == nullptr));
 
     // void expressions must not be named!
     if (callee_fn->getReturnType() == llvm::Type::getVoidTy(*gen->context))

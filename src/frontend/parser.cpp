@@ -247,8 +247,10 @@ Result<Expression> Parser::parse_ident_expr() {
 
         // Get the type of that identifier
         TypeInstance ti = named_values[ident_name];
-        if (!ti)
-            return Exception(f_string("variable %s does not exist", ident_name.c_str()));
+        if (!ti) {
+            print_error_at(current(), f_string("variable %s does not exist", ident_name.c_str()));
+            ti = SALT_TYPE_ERROR;
+        }
 
         salt::dboutv << f_string("Making variable with name %s and type `%s`\n", vec[ident_idx].data(), named_values[ident_name].str());
         return std::make_unique<VariableExprAST>(vec[ident_idx], ti);
@@ -279,8 +281,10 @@ Result<Expression> Parser::parse_ident_expr() {
     // this identifier is a function call. treat it like one.
     std::vector<Expression> args;
     TypeInstance call_return_type = named_functions[ident_name];
-    if (!call_return_type)
-        return Exception(f_string("function %s does not exist", ident_name.c_str()));
+    if (!call_return_type) {
+        print_error_at(vec[ident_idx], f_string("function %s does not exist", ident_name.c_str()));
+        call_return_type = SALT_TYPE_ERROR;
+    }
 
     // skip (
     this->next();

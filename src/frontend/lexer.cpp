@@ -382,7 +382,7 @@ Result<Token> Lexer::next_token() {
             // If not, throw an error.
             if (!is_allowed(ch) && ch != EOF) {
                 void(end_token()); // Discard the current token and just move forward
-                salt::print_error(std::to_string(this->line()) + ':'
+                salt::print_error(salt::get_current_file_name() + " - " + std::to_string(this->line()) + ':'
                     + std::to_string(this->col()) + ":" + " Invalid char: `" + ch + '`'
                     + ", ASCII: " + std::to_string(int(ch)));
                 return TOK_NONE;
@@ -446,7 +446,7 @@ Result<Token> Lexer::next_token() {
                 this->pos_++;
                 lexer_col = col_;
                 lexer_line = line_;
-                return TOK_NONE;
+                return TOK_EOL; // fix #2
             default:
                 this->col_++;
                 this->pos_++;
