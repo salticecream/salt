@@ -40,6 +40,7 @@ namespace salt {
     extern bool no_std;
     extern std::vector<std::string> file_names;
     extern int current_file_name_index;
+    const std::string& get_current_file_name();
 
     extern int WARNING_LEVEL;
     class TextColor; // defined below

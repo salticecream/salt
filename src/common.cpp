@@ -16,6 +16,8 @@ MaybeStream salt::dberr;
 MaybeStream salt::dboutv;
 MaybeStream salt::dberrv;
 
+const std::string& salt::get_current_file_name() { return file_names[current_file_name_index]; }
+
 void salt::MaybeStream::activate() {
 	print_to_stdout_ = true;
 }
@@ -153,7 +155,7 @@ void salt::print_warning_at(const Token& tok, const std::string& str, int min_wa
 		return;
 
 	print_colored("warning: ", Color::YELLOW);
-	std::cout << salt::file_names[current_file_name_index] << ':' << tok.line() << ':' << tok.col() << ": " << str << std::endl;
+	std::cout << salt::file_names[current_file_name_index] << " - " << tok.line() << ':' << tok.col() << ": " << str << std::endl;
 }
 
 void salt::print_warning_at(ExprAST* expr, const std::string& str, int min_warning_level) {
@@ -161,7 +163,7 @@ void salt::print_warning_at(ExprAST* expr, const std::string& str, int min_warni
 		return;
 
 	print_colored("warning: ", Color::YELLOW);
-	std::cout << salt::file_names[current_file_name_index] << ':' << expr->line() << ':' << expr->col() << ": " << str << std::endl;
+	std::cout << salt::file_names[current_file_name_index] << " - " << expr->line() << ':' << expr->col() << ": " << str << std::endl;
 }
 
 void salt::print_error(const std::string& str) {
@@ -173,13 +175,13 @@ void salt::print_error(const std::string& str) {
 void salt::print_error_at(const Token& tok, const std::string& str) {
 	any_compile_error_occured = true;
 	print_colored("error: ", Color::LIGHT_RED);
-	std::cout << salt::file_names[current_file_name_index] << ':' << tok.line() << ':' << tok.col() << ": " << str << std::endl;
+	std::cout << salt::file_names[current_file_name_index] << " - " << tok.line() << ':' << tok.col() << ": " << str << std::endl;
 }
 
 void salt::print_error_at(ExprAST* expr, const std::string& str) {
 	any_compile_error_occured = true;
 	print_colored("error: ", Color::LIGHT_RED);
-	std::cout << salt::file_names[current_file_name_index] << ':' << expr->line() << ':' << expr->col() << ": " << str << std::endl;
+	std::cout << salt::file_names[current_file_name_index] << " - " << expr->line() << ':' << expr->col() << ": " << str << std::endl;
 }
 
 

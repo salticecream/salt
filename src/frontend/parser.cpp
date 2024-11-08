@@ -200,9 +200,7 @@ Result<Expression> Parser::parse_number_expr() {
             return std::make_unique<ValExprAST>(vec[current_idx - 1], val_int, SALT_TYPE_LONG);
     }
 
-    print_error(f_string("%d:%d: invalid numeric literal",
-        vec[current_idx - token_delta].line(),
-        vec[current_idx - token_delta].col()));
+    print_error_at(vec[current_idx - token_delta], "invalid numeric literal");
 
     if (should_return_float)
         return std::make_unique<ValExprAST>(vec[current_idx - 1], val_float, SALT_TYPE_DOUBLE);
@@ -373,7 +371,7 @@ Result<Expression> Parser::parse_new_variable() {
     if (rhs_res) {
         rhs = rhs_res.unwrap();
         if (!rhs->type() || rhs->type()->get() == SALT_TYPE_VOID->get())
-            return Exception(f_string("%s:%d:%d: bad value for assignment", salt::file_names[current_file_name_index].c_str(), rhs->line(), rhs->col()));
+            return Exception(f_string("%s - %d:%d: bad value for assignment", salt::file_names[current_file_name_index].c_str(), rhs->line(), rhs->col()));
     }
     else
         return ParserException(current(), "expected expression");
@@ -391,7 +389,7 @@ Result<Expression> Parser::parse_char() {
     this->next();
 
     if (ch.data().size() >= 2)
-        print_warning(f_string("%d:%d: multi-byte char, will be truncated to least significant byte", ch.line(), ch.col()));
+        print_warning_at(ch, "multi-byte char, will be truncated to least significant byte");
 
     char val = ch.data().back();
     return std::make_unique<ValExprAST>(ch, int64_t(val), SALT_TYPE_CHAR);
@@ -701,8 +699,8 @@ Result<std::unique_ptr<DeclarationAST>> Parser::parse_declaration() {
             return ParserException(vec[current_idx], "expected type name after -> symbol");
     }   
 
-    if (named_functions[function_name])
-        return Exception (f_string("%d:%d: function %s already exists", function_identifier_token.line(), function_identifier_token.col(), function_name.c_str()).c_str());
+    // if (named_functions[function_name])
+    //    return Exception (f_string("%d:%d: function %s already exists", function_identifier_token.line(), function_identifier_token.col(), function_name.c_str()).c_str());
     
     named_functions[function_name] = return_type;
     return std::make_unique<DeclarationAST>(function_identifier_token, std::move(args), return_type);
@@ -770,7 +768,7 @@ Result<std::unique_ptr<FunctionAST>> Parser::parse_function() {
         Expression body = body_res.unwrap();
 
         if (already_parsed_return)
-            print_warning(f_string("%d:%d: code after a return will be ignored", body->line(), body->col()));
+            print_warning_at(body.get(), "code after a return will be ignored");
         else
             ret_vec.push_back(std::move(body));
 
@@ -990,7 +988,7 @@ ParserReturnType Parser::parse() {
 ParserException::ParserException(const Token& tok, const char* str) :
     Exception(
         salt::file_names[salt::current_file_name_index]
-        + ':'
+        + " - "
         + (std::to_string(tok.line())
         + ':'
         + std::to_string(tok.col())

@@ -326,7 +326,7 @@ Value* NewVariableAST::code_gen() {
     llvm::AllocaInst* alloca_inst = gen->builder->CreateAlloca(llvm_type, nullptr, var_->name());
     llvm::AllocaInst*& existing_inst = gen->named_values[var_->name()];
     if (existing_inst)
-        print_error(f_string("%d:%d: variable %s already exists", var_->line(), var_->col(), var_->name()));
+        print_error_at(var_.get(), f_string("variable %s already exists", var_->name().c_str()));
     existing_inst = alloca_inst;
 
     // and set it.
@@ -340,7 +340,7 @@ Value* NewVariableAST::code_gen() {
     right = convert_implicit(right, llvm_type, value_->type()->is_signed);
     if (!right) {
         right = llvm::PoisonValue::get(llvm_type);
-        print_error(f_string("%d:%d: bad type for assignment", value_->line(), value_->col()));
+        print_error_at(value_.get(), "bad type for assignment");
     }
     
     gen->builder->CreateStore(right, alloca_inst);
@@ -419,7 +419,7 @@ Value* BinaryExprAST::code_gen() {
         right = convert_implicit(right_proto, new_type->get(), rhs_->type()->is_signed);
 
         if (!left || !right) {
-            print_error(f_string("unsupported conversion between `%s` and `%s` type", lhs_->type()->name.c_str(), rhs_->type()->name.c_str()));
+            print_error_at(this, f_string("unsupported conversion between `%s` and `%s` type", lhs_->type()->name.c_str(), rhs_->type()->name.c_str()));
             salt::dboutv << "Creating poison value for new type at address " << new_type << std::endl;
             return llvm::PoisonValue::get(const_cast<llvm::Type*>(new_type->get()));
         }
@@ -520,7 +520,7 @@ Value* BinaryExprAST::code_gen() {
                     offset_size = ti_ptr->pointee->get()->getPrimitiveSizeInBits() / 8;
 
                 if (!offset_val->getType()->isIntegerTy())
-                    RET_POISON_WITH_ERROR_MSG(new_type, f_string("%d:%d: pointer offset must be an integer", rhs_->line(), rhs_->col()));
+                    RET_POISON_WITH_ERROR_MSG(new_type, f_string("%s - %d:%d: pointer offset must be an integer", salt::file_names[salt::current_file_name_index].c_str(), lhs_->line(), lhs_->col()));
 
                 offset_size = std::max(1, offset_size);
                 offset_val = convert_implicit(offset_val, SALT_TYPE_SSIZE->get(), ti_offset->type->is_signed);
@@ -580,7 +580,7 @@ Value* BinaryExprAST::code_gen() {
                     offset_size = ti_ptr->pointee->get()->getPrimitiveSizeInBits() / 8;
 
                 if (!offset_val->getType()->isIntegerTy())
-                    RET_POISON_WITH_ERROR_MSG(new_type, f_string("%d:%d: pointer offset must be an integer", rhs_->line(), rhs_->col()));
+                    RET_POISON_WITH_ERROR_MSG(new_type, f_string("%s - %d:%d: pointer offset must be an integer", salt::file_names[salt::current_file_name_index].c_str(), rhs_->line(), rhs_->col()));
 
                 offset_size = std::max(1, offset_size);
                 offset_val = convert_implicit(offset_val, SALT_TYPE_SSIZE->get(), ti_offset->type->is_signed);
@@ -609,7 +609,7 @@ Value* BinaryExprAST::code_gen() {
     case TOK_DIV:
         if (ValExprAST* divisor = rhs_->to_val()) {
             if ((divisor->type()->is_integer() && divisor->to_int() == 0) || (divisor->type()->is_float() && divisor->to_double() == 0.0)) {
-                print_warning(f_string("%d:%d: division by zero", divisor->line(), divisor->col()));
+                print_warning_at(divisor, "division by zero");
             }
         }
         switch (bin_type) {
@@ -782,19 +782,19 @@ Value* BinaryExprAST::code_gen() {
             Value* rhs_code = rhs_->code_gen();
 
             if (!lhs_ptr_code || !lhs_ptr_code->getType()->isPointerTy()) {
-                print_error(f_string("%d:%d: type `%s` cannot be dereferenced", lhs_->line(), lhs_->col(), lhs_->type_instance().str().c_str()));
+                print_error_at(lhs_.get(), f_string("type `%s` cannot be dereferenced", lhs_->type_instance().str().c_str()));
                 return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
             }
 
             if (!rhs_code) {
-                print_error(f_string("%d:%d: invalid rhs for assignment", rhs_->line(), rhs_->col()));
+                print_error_at(rhs_.get(), "invalid rhs for assignment");
                 return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
             }
 
             Value* converted_rhs = convert_implicit(rhs_code, lhs_deref->type()->get(), lhs_deref->type()->is_signed);
 
             if (!converted_rhs) {
-                print_error(f_string("%d:%d: wrong type for rhs", rhs_->line(), rhs_->col()));
+                print_error_at(rhs_.get(), "wrong type for rhs");
                 return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
             }
 
@@ -810,19 +810,19 @@ Value* BinaryExprAST::code_gen() {
             Value* rhs_code = rhs_->code_gen();
 
             if (!lhs_code) {
-                print_error(f_string("%d:%d: could not create lhs_code (ast.cpp, line %d, please contact salticecream)", lhs_->line(), lhs_->col(), __LINE__));
+                print_error_at(lhs_variable, f_string("could not create lhs_code (ast.cpp, line %d, please contact salticecream)", __LINE__));
                 return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
             }
 
             if (!rhs_code) {
-                print_error(f_string("%d:%d: invalid rhs for assignment", rhs_->line(), rhs_->col()));
+                print_error_at(lhs_variable, f_string("invalid rhs for assignment"));
                 return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
             }
 
             Value* converted_rhs = convert_implicit(rhs_code, lhs_variable->type()->get(), lhs_variable->type()->is_signed);
             
             if (!converted_rhs) {
-                print_error(f_string("%d:%d: wrong type for rhs", rhs_->line(), rhs_->col()));
+                print_error_at(rhs_.get(), "wrong type for rhs");
                 return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
             }
 
@@ -832,7 +832,7 @@ Value* BinaryExprAST::code_gen() {
         }
 
         else {
-            print_error(f_string("%d:%d: cannot assign to `%s`", lhs_->line(), lhs_->col(), lhs_->ast_type().c_str()));
+            print_error_at(lhs_.get(), f_string("cannot assign to `%s`",lhs_->ast_type().c_str()));
             return llvm::PoisonValue::get(const_cast<llvm::Type*>(lhs_->type()->get()));
         }
 
@@ -880,7 +880,7 @@ Value* BinaryExprAST::code_gen() {
             return gen->builder->CreateURem(left, right, "uremtmp");
         case BIN_TYPE_FLOAT:
             if (salt::no_std)
-                print_warning(f_string("%d:%d: floating-point remainder with no_std flag", this->line(), this->col()));
+                print_warning_at(this, "floating - point remainder with no_std flag");
             return gen->builder->CreateFRem(left, right, "fremtmp");
         default:
             RET_POISON_WITH_ERROR(new_type);
@@ -896,7 +896,7 @@ Value* DerefExprAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
     if (type() != SALT_TYPE_VOID)
         return gen->builder->CreateLoad(const_cast<llvm::Type*>(this->type()->get()), this->expr_->code_gen(), "dereftmp");
-    print_error(f_string("%d:%d: attempting to dereference wrong type, please cast to a correct pointer type using the \"as\" keyword", this->line(), this->col()));
+    print_error_at(this, f_string("cannot dereference %s", this->type_instance().str().c_str()));
     return nullptr;
 }
 
@@ -958,7 +958,7 @@ Value* IfExprAST::code_gen() {
     // Try to convert cond_val to an i1
     cond_val = convert_implicit(cond_val, SALT_TYPE_BOOL->get(), false);
     if (!cond_val) {
-        print_error(f_string("%d:%d: bad if condition", condition_->line(), condition_->col()));
+        print_error_at(this, "bad if condition");
         cond_val = PoisonValue::get(llvm::Type::getInt1Ty(*gen->context));
     }
     else salt::dboutv << f_string("Condval ptr is %p\n", cond_val);
@@ -995,7 +995,7 @@ Value* IfExprAST::code_gen() {
     true_expr_val = convert_implicit(true_expr_val, new_type->get(), new_type->is_signed);
     if (!true_expr_val) {
         true_expr_val = PoisonValue::get(const_cast<llvm::Type*>(new_type->get()));
-        print_error(f_string("%d:%d: both arms of an if-expression must be of the same type", true_expr_->line(), true_expr_->col()));
+        print_error_at(this, "both arms of an if-expression must be of the same type");
     }
     gen->builder->CreateBr(merge_bb); // make code to "return" from the if expression at the end of this block
 
@@ -1008,7 +1008,7 @@ Value* IfExprAST::code_gen() {
     false_expr_val = convert_implicit(false_expr_val, new_type->get(), new_type->is_signed);
     if (!false_expr_val) {
         false_expr_val = PoisonValue::get(const_cast<llvm::Type*>(new_type->get()));
-        print_error(f_string("%d:%d: bad type for variable", false_expr_->line(), false_expr_->col()));
+        print_error_at(false_expr_.get(), f_string("bad type (%s) for variable", false_expr_->type_instance().str().c_str()));
     }
     gen->builder->CreateBr(merge_bb); // make code to "return" from the if expression at the end of this block
 
@@ -1076,9 +1076,7 @@ Value* ReturnAST::code_gen() {
                 res = attempted_conversion;
             }
             else {
-                print_error(f_string("%d:%d: returning %s when %s was expected",
-                    this->line(),
-                    this->col(),
+                print_error_at(this, f_string("returning %s when %s was expected",
                     actual_salt_type.str().c_str(),
                     expected_salt_type.str().c_str()));
                 if (!expected_type || expected_type == llvm::Type::getVoidTy(*gen->context)) {
@@ -1140,7 +1138,7 @@ Function* FunctionAST::code_gen() {
     
     // Check that the function has not already been defined (it's ok if it has been declared though)
     if (!f->empty()) {
-        print_error(f_string("%d:%d: redefinition of function %s", decl()->line(), decl()->col(), decl()->name().c_str()));
+        print_error(f_string("%s - %d:%d: redefinition of function %s", get_current_file_name().c_str(), decl()->line(), decl()->col(), decl()->name().c_str()));
         return f;
     }
 
@@ -1195,15 +1193,21 @@ Function* FunctionAST::code_gen() {
             } else {
                 salt::dboutv << "Creating an extra poison return with type " << expected_salt_type.str() << '\n';
                 gen->builder->CreateRet(llvm::PoisonValue::get(expected_salt_type.get()));
-                print_warning(f_string("%d:%d: %s does not end with a return instruction", last_expr->line(), last_expr->col(), this->decl()->name().c_str()));
+                print_warning_at(last_expr.get(), f_string("%s does not end with a return instruction", this->decl()->name().c_str()));
             }
         }
 
     } else {
-        print_warning(f_string("%s - %d:%d: %s does not end with a return instruction", salt::file_names[salt::current_file_name_index].c_str(), decl()->line(), decl()->col(), decl()->name().c_str()));
+        print_warning(f_string("%s - %d:%d: %s does not end with a return instruction", 
+            salt::file_names[salt::current_file_name_index].c_str(), 
+            decl()->line(), 
+            decl()->col(), 
+            decl()->name().c_str()));
+
         if (expected_salt_type.get() == SALT_TYPE_VOID->get()) {
             gen->builder->CreateRetVoid();
         }
+
         else {
             salt::dboutv << "Creating an extra poison return with type " << expected_salt_type.str() << '\n';
             gen->builder->CreateRet(llvm::PoisonValue::get(expected_salt_type.get()));
