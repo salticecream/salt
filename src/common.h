@@ -358,6 +358,6 @@ namespace salt {
 
 #define ASSERT(cond) \
 if (!(cond))\
-    print_fatal(f_string("Assertion failed: `%s`\n\t in: %s\n\t at: %s:%d", #cond, __FUNCTION__, __FILE__, __LINE__))
+    salt::print_fatal(salt::f_string("Assertion failed: `%s`\n\t in: %s\n\t at: %s:%d", #cond, __FUNCTION__, __FILE__, __LINE__))
 // "this feature is not yet implemented!"
 #define TODO() (salt::print_fatal((std::string("Not yet implemented in ") + __FUNCTION__ + " at " __FILE__ + ", line " + std::to_string(__LINE__)).c_str()))

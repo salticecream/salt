@@ -32,9 +32,14 @@ public:
 	// When the module is created, we will also declare the intrinsic functions that form the prelude
 	std::unique_ptr<llvm::Module> mod;
 
-	// Keeps track of all named values.
-	/// @todo: add scope (std::map of (Scope and std::map of std::string and llvm::Value*)) or similar)
-	std::map<std::string, llvm::AllocaInst*> named_values;
+	// Keeps track of all named values
+	// when referencing a variable, we will check the innermost scope (named_values.back()) first, then the one before that etc.
+	std::vector<std::map<std::string, llvm::AllocaInst*>> named_values;
+
+	// warning: reference has a very short lifetime!
+	// be careful to not let that value go out of scope when using this function
+	llvm::AllocaInst*& find_in_named_values(const std::string& variable_name);
+
 
 	std::map<std::string, llvm::Constant*> named_strings;
 

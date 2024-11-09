@@ -254,7 +254,7 @@ Result<Expression> Parser::parse_ident_expr() {
             ti = SALT_TYPE_ERROR;
         }
 
-        salt::dboutv << f_string("Making variable with name %s and type `%s`\n", vec[ident_idx].data(), named_values[ident_name].str());
+        salt::dboutv << f_string("Making variable with name %s and type `%s`\n", vec[ident_idx].data(), named_values[ident_name].str().c_str());
         return std::make_unique<VariableExprAST>(vec[ident_idx], ti);
     }
 

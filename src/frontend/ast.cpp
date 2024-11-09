@@ -297,17 +297,19 @@ Value* VariableExprAST::code_gen() {
 
     // if (this->var().type().name() != DEFAULT_TYPES[DT_INT].name())
     //     print_fatal("Types other than \"int\" NYI");
-    for (const std::pair<std::string, Value*>& pair : gen->named_values) {
-        salt::dboutv << f_string("Name %s: ptr %p\n", pair.first.c_str(), pair.second);
-    }
+    // for (const std::pair<std::string, Value*>& pair : gen->named_values) {
+    //     salt::dboutv << f_string("Name %s: ptr %p\n", pair.first.c_str(), pair.second);
+    // }
     salt::dboutv << f_string("I am a variable of type %s and my name is %s\n", this->type()->name, this->name());
 
-    llvm::AllocaInst*& alloca_inst = gen->named_values[this->name()];
-    
+
+    llvm::AllocaInst*& alloca_inst = gen->find_in_named_values(this->name());
+
     if (!alloca_inst) {
         print_error_at(this, f_string("variable %s does not exist", this->name()));
         alloca_inst = gen->builder->CreateAlloca(llvm::Type::getInt8Ty(*gen->context), nullptr, this->name());
     }
+
 
     return gen->builder->CreateLoad(alloca_inst->getAllocatedType(), alloca_inst, this->name().c_str());
 
@@ -325,7 +327,7 @@ Value* NewVariableAST::code_gen() {
 
     // allocate the mem...
     llvm::AllocaInst* alloca_inst = gen->builder->CreateAlloca(llvm_type, nullptr, var_->name());
-    llvm::AllocaInst*& existing_inst = gen->named_values[var_->name()];
+    llvm::AllocaInst*& existing_inst = gen->find_in_named_values(var_->name());
     if (existing_inst)
         print_error_at(var_.get(), f_string("variable %s already exists", var_->name().c_str()));
     existing_inst = alloca_inst;
@@ -341,7 +343,7 @@ Value* NewVariableAST::code_gen() {
     right = convert_implicit(right, llvm_type, value_->type()->is_signed);
     if (!right) {
         right = llvm::PoisonValue::get(llvm_type);
-        print_error_at(value_.get(), "bad type for assignment");
+        print_error_at(value_.get(), f_string("cannot create a %s from a %s", var_->type_instance().str().c_str(), value_->type_instance().str().c_str()));
     }
     
     gen->builder->CreateStore(right, alloca_inst);
@@ -807,7 +809,7 @@ Value* BinaryExprAST::code_gen() {
         // and this will return rhs, same as above
         else if (VariableExprAST* lhs_variable = lhs_->to_variable()) {
 
-            AllocaInst* lhs_code = gen->named_values[lhs_variable->name()];
+            AllocaInst*& lhs_code = gen->find_in_named_values(lhs_variable->name());
             Value* rhs_code = rhs_->code_gen();
 
             if (!lhs_code) {
@@ -1147,9 +1149,9 @@ Function* FunctionAST::code_gen() {
     BasicBlock* bb = BasicBlock::Create(*gen->context, "entry", f);
     gen->builder->SetInsertPoint(bb);
 
-    // Since we are in a new scope, clear named_values.
+    // Since we are in a new scope, clear named_values (except global scope).
     // Not the best way of doing it, but for simplicity this is the way it's going to be done
-    gen->named_values.clear();
+    gen->named_values.back().clear();
 
     // begin generation of function code by stack allocating the arguments
     // ..which are already stack allocated xD?
@@ -1157,7 +1159,7 @@ Function* FunctionAST::code_gen() {
     for (auto& arg : f->args()) {
         AllocaInst* llvm_alloca = temp_builder.CreateAlloca(arg.getType(), nullptr, arg.getName());
         gen->builder->CreateStore(&arg, llvm_alloca);
-        gen->named_values[std::string(arg.getName())] = llvm_alloca;
+        gen->named_values.back()[std::string(arg.getName())] = llvm_alloca;
         salt::dbout << "arg.getName(): " << std::string(arg.getName()) << std::endl;
         salt::dboutv << "allocaInst->getName(): " << std::string(llvm_alloca->getName()) << std::endl;
     }

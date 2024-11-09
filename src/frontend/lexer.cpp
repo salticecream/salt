@@ -185,6 +185,10 @@ Token Lexer::end_token() {
             case '#':
                 this->state_ = LEXER_STATE_LINE_COMMENT;
                 return TOK_NONE;
+            case '[':
+                return Token(TOK_LEFT_SQUARE);
+            case ']':
+                return Token(TOK_RIGHT_SQUARE);
 
 
             default:

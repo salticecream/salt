@@ -32,7 +32,7 @@ IRGenerator::IRGenerator() : context(global_context) {
 	// For code generation
 	this->builder = std::make_unique<llvm::IRBuilder<>>(*this->context);
 	this->mod = std::make_unique<llvm::Module>("salt", *this->context);
-	this->named_values = std::map<std::string, llvm::AllocaInst*>();
+	this->named_values = { {}, {} }; // the first {} is for global scope, the second {} is for current function scope.
 	this->named_strings = {};
 	this->named_functions = {};
 
@@ -134,7 +134,38 @@ void IRGenerator::add_prelude() {
 		add_std_prelude();
 }
 
+llvm::AllocaInst*& IRGenerator::find_in_named_values(const std::string& variable_name) {
+	salt::dboutv << "Finding " << variable_name << " in named values\n";
 
+	int current_scope = this->named_values.size() - 1;
+	ASSERT(this->named_values.size() > 0);
+	llvm::AllocaInst* current_match = nullptr;
+
+
+	while (current_scope >= 0 && current_match == nullptr) {
+		current_match = this->named_values[current_scope][variable_name];
+		current_scope--;
+		if (current_match != nullptr)
+			current_scope++; // un-increment the scope, since we found the variable we're looking for
+	}
+
+	if (!current_match) // did not find this variable
+		current_scope = this->named_values.size() - 1; // reset the scope to the innermost, so that we can create a poison variable at not-global level
+
+	// we create this volatile variable to be sure there's an AllocaInst* 
+	// at named_values[current_scope][variable_name], even if that AllocaInst* is nullptr
+
+	
+
+	llvm::AllocaInst* anti_crasher = this->named_values[current_scope][variable_name];
+
+	if (anti_crasher)
+		salt::dboutv << variable_name << " found in named values at scope " << current_scope << '\n';
+	else
+		salt::dboutv << variable_name << " not found in named values!\n";
+
+	return this->named_values[current_scope][variable_name];
+}
 
 
 
