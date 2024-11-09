@@ -387,7 +387,7 @@ DerefExprAST::DerefExprAST(Expression expr) : expr_(std::move(expr)) {
         ti_ = expr_->type_instance();
         ti_.ptr_layers--;
     } else {
-        ti_ = expr_->pointee() ? expr_->pointee() : SALT_TYPE_VOID;
+        ti_ = expr_->pointee() ? expr_->pointee() : SALT_TYPE_ERROR;
     }
 
     salt::dboutv << "Created new DerefExprAST, my type: `" << ti_.str() << "` , my expr's type: `" << expr_->type_instance().str() << "`\n";
@@ -897,7 +897,7 @@ Value* BinaryExprAST::code_gen() {
 
 Value* DerefExprAST::code_gen() {
     IRGenerator* gen = IRGenerator::get();
-    if (type() != SALT_TYPE_VOID)
+    if (type() != SALT_TYPE_VOID && type() != SALT_TYPE_ERROR && type() != SALT_TYPE_RETURN && type() != SALT_TYPE_NEVER)
         return gen->builder->CreateLoad(const_cast<llvm::Type*>(this->type()->get()), this->expr_->code_gen(), "dereftmp");
     print_error_at(this, f_string("cannot dereference %s", this->expr_->type_instance().str().c_str()));
     return nullptr;
@@ -1295,6 +1295,11 @@ Value* salt::convert_implicit(llvm::Value* value, const llvm::Type* _type, bool 
     if (!value)
         return nullptr;
 
+    if (!_type) {
+        print_error("type for convert_implicit is nullptr, please create an issue on github");
+        return nullptr;
+    }
+
     llvm::Type* current_type = const_cast<llvm::Type*>(value->getType());
     IRGenerator* gen = IRGenerator::get();
     llvm::Type* type = const_cast<llvm::Type*>(_type);
@@ -1414,6 +1419,11 @@ llvm::Value* salt::convert_explicit(llvm::Value* val, const llvm::Type* _type, b
 
     if (!val)
         return nullptr;
+
+    if (!_type) {
+        print_error("type for convert_explicit is nullptr, please create an issue on github");
+        return nullptr;
+    }
 
     IRGenerator* gen = IRGenerator::get();
     llvm::Type* type = const_cast<llvm::Type*>(_type);
